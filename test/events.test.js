@@ -90,3 +90,12 @@ test("POST /api/event records, builds a prompt and pushes", async () => {
   const bad = await call(env, "POST", "/api/event", { body: { ...base, bot: "x" }, headers: { authorization: "Bearer bot-token" } });
   assert.equal(bad.status, 400);
 });
+
+test("a posted event via the API puts the post on the Live list", async () => {
+  const env = await makeEnv();
+  const body = { bot: "chess", kind: "posted", severity: "info", title: "Chess posted: Mate in 2",
+    data: { video_url: "https://youtube.com/shorts/YkkI7LMCkNg", external_id: "YkkI7LMCkNg" } };
+  const res = await call(env, "POST", "/api/event", { body, headers: { authorization: "Bearer bot-token" } });
+  assert.equal(res.status, 200);
+  assert.equal(await env.DB.prepare("SELECT title FROM posts WHERE id = 'chess:YkkI7LMCkNg'").first("title"), "Mate in 2");
+});

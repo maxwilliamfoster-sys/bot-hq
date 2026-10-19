@@ -4,6 +4,7 @@ import { getSettings, putSettings } from "./settings.js";
 import { saveSubscription, removeSubscription, pushAll } from "./push.js";
 import { validateEvent, processEvent } from "./events.js";
 import { clock } from "./bots.js";
+import { recordPostFromEvent } from "./watch/stats.js";
 
 const MAX_BODY = 512 * 1024;
 
@@ -63,7 +64,9 @@ export const routes = [
   ["POST", "/api/event", "bot", async ({ env, body }) => {
     const v = validateEvent(body);
     if (!v.ok) return json({ error: v.error }, 400);
-    const r = await processEvent(env, v.event, clock(env));
+    const now = clock(env);
+    await recordPostFromEvent(env.DB, v.event, now);
+    const r = await processEvent(env, v.event, now);
     return json({ id: r.id, count: r.count, pushed: r.pushed });
   }],
 

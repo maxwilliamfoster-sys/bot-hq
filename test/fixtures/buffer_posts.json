@@ -1,0 +1,10 @@
+{"data":{
+ "sent":{"edges":[
+  {"node":{"id":"65f0aaa1","channelId":"ch-escape","dueAt":"2026-10-20T15:30:00.000Z","sentAt":"2026-10-20T15:30:12.000Z","text":"ENGLAND v BRAZIL - who escapes first? #escapecup","externalLink":"https://www.tiktok.com/@5lmvill/video/7400000000000000001","metricsUpdatedAt":"2026-10-20T18:00:00.000Z","metrics":[{"type":"views","value":2310},{"type":"reactions","value":188},{"type":"comments","value":12},{"type":"shares","value":4},{"type":"reach","value":2100},{"type":"averageTimeWatched","value":9.4}]}},
+  {"node":{"id":"65f0bbb2","channelId":"ch-bcf","dueAt":"2026-10-20T11:45:00.000Z","sentAt":"2026-10-20T11:45:30.000Z","text":"The case nobody solved","externalLink":"https://www.tiktok.com/@buriedcasefiles/video/7400000000000000002","metricsUpdatedAt":null,"metrics":[]}}
+ ]},
+ "scheduled":{"edges":[
+  {"node":{"id":"65f0ccc3","channelId":"ch-escape","dueAt":"2026-10-21T15:30:00.000Z"}},
+  {"node":{"id":"65f0ddd4","channelId":"ch-escape","dueAt":"2026-10-21T19:30:00.000Z"}}
+ ]}
+}}
