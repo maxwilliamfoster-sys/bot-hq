@@ -5,3 +5,4 @@ public/app.js
 .superpowers/
 __pycache__/
 test/e2e/shots/
+.playwright-mcp/
