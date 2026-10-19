@@ -95,15 +95,17 @@ export function ukClock(iso, now = Date.now()) {
   return UK_YMD.format(d) === UK_YMD.format(new Date(now)) ? t : `${UK_DAY.format(d)} ${t}`;
 }
 
-// A view that keeps itself fresh: fills `root` now, again every `every` ms while the
-// page is visible and the view is on screen, and when pulled down from the top.
+// A view that keeps itself fresh: `mount()` fills `root`, then it refills every `every` ms
+// while the page is visible and the view is on screen, and when pulled down from the top.
+// `fill` returns a list of nodes; empty slots (null/false) are skipped.
 export function liveView(root, fill, { every = 60000 } = {}) {
   const ptr = el("div", { class: "ptr", "aria-hidden": "true" }, "Release to refresh");
   let busy = false;
+  const draw = async () => root.replaceChildren(ptr, ...(await fill()).filter(n => n !== null && n !== undefined && n !== false));
   const refresh = async () => {
     if (busy || !root.isConnected) return;
     busy = true;
-    try { root.replaceChildren(ptr, ...(await fill())); } catch (e) { if (e instanceof SignedOut) location.reload(); else toast("Couldn't refresh. Check your connection."); }
+    try { await draw(); } catch (e) { if (e instanceof SignedOut) location.reload(); else toast("Couldn't refresh. Check your connection."); }
     busy = false;
   };
   const timer = setInterval(() => {
@@ -119,5 +121,5 @@ export function liveView(root, fill, { every = 60000 } = {}) {
     if (ptr.classList.contains("show")) { ptr.classList.remove("show"); refresh(); }
     startY = null;
   });
-  return { ptr, refresh };
+  return { ptr, refresh, mount: async () => { await draw(); return root; } };
 }

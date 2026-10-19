@@ -166,9 +166,8 @@ async function graphScreen(i) {
         el("a", { class: "btn", href: `#/graphs/edit-${i}` }, "Edit")),
     ];
   };
-  const { ptr, refresh } = liveView(root, fill);
-  root.append(ptr, ...(await fill()));
-  return root;
+  const { refresh, mount } = liveView(root, fill);
+  return mount();
 }
 
 // ---------- builder ----------

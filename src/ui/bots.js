@@ -50,8 +50,6 @@ export async function botsTab() {
           : el("p", { class: "muted" }, "No A/B tests running. The morning digest lists them when one starts.")),
     ];
   };
-  const { ptr } = liveView(root, fill);
-  root.append(ptr, ...(await fill()));
-  return root;
+  return liveView(root, fill).mount();
 }
 

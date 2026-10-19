@@ -99,3 +99,8 @@ test("a posted event via the API puts the post on the Live list", async () => {
   assert.equal(res.status, 200);
   assert.equal(await env.DB.prepare("SELECT title FROM posts WHERE id = 'chess:YkkI7LMCkNg'").first("title"), "Mate in 2");
 });
+
+test("the morning digest is recorded but never pushed (the 07:30 summary is the morning push)", () => {
+  const ev = { ...base, severity: "info", kind: "digest" };
+  assert.equal(pushDecision(ev, 1, DEFAULT_SETTINGS, hours(0)), false);
+});

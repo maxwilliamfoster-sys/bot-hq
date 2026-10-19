@@ -8,6 +8,7 @@ import { recordPostFromEvent } from "./watch/stats.js";
 import { ingest } from "./ingest.js";
 import { liveData, botsData } from "./views.js";
 import { runGraph, validSaved, PRESETS } from "./query.js";
+import { inboxData, eventDetail, markEvent } from "./inbox.js";
 
 const MAX_BODY = 512 * 1024;
 
@@ -71,6 +72,19 @@ export const routes = [
     await recordPostFromEvent(env.DB, v.event, now);
     const r = await processEvent(env, v.event, now);
     return json({ id: r.id, count: r.count, pushed: r.pushed });
+  }],
+
+  ["GET", "/api/inbox", "session", async ({ env, url }) => {
+    const out = await inboxData(env.DB, url.searchParams.get("filter") || "all", url.searchParams.get("before"));
+    return out ? json(out) : json({ error: "bad_filter" }, 400);
+  }],
+  ["GET", /^\/api\/events\/(\d+)$/, "session", async ({ env, params }) => {
+    const e = await eventDetail(env.DB, params[0]);
+    return e ? json(e) : json({ error: "not_found" }, 404);
+  }],
+  ["POST", /^\/api\/events\/(\d+)\/(read|resolve)$/, "session", async ({ env, params }) => {
+    const r = await markEvent(env.DB, params[0], params[1], clock(env));
+    return r ? json(r) : json({ error: "not_found" }, 404);
   }],
 
   ["GET", "/api/live", "session", async ({ env }) => json(await liveData(env.DB, clock(env)))],

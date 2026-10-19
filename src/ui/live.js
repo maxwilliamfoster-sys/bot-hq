@@ -67,7 +67,5 @@ export async function liveTab() {
       ...data.bots.map(card),
     ];
   };
-  const { ptr } = liveView(root, fill);
-  root.append(ptr, ...(await fill()));
-  return root;
+  return liveView(root, fill).mount();
 }

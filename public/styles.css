@@ -302,3 +302,16 @@ a { color: inherit; }
 .sheet h2 { margin-bottom: var(--s4); font-size: 20px; }
 @media (prefers-reduced-motion: no-preference) { .sheet { animation: sheet-up .18s ease-out; } }
 @keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } }
+
+/* ---------- Inbox & detail (anchors) ---------- */
+a.need, a.row, a.chip { text-decoration: none; color: var(--ink); }
+a.chip { display: inline-flex; align-items: center; }
+.row .when { display: block; }
+.sev-action { color: var(--alarm); }
+.sev-warn { color: var(--warn); }
+.sev-good { color: var(--good); }
+.sev-info { color: var(--muted); }
+.detail-title { font-size: 28px; margin-top: var(--s1); }
+.body-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.btn-copy { min-height: 56px; font-size: 17px; }
+.need .title { font-weight: 650; }

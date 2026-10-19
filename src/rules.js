@@ -24,6 +24,7 @@ function toggleFor(event) {
 }
 
 export function shouldPush(event, settings, date) {
+  if (event.kind === "digest") return false;          // in the Inbox only; the 07:30 summary is the morning push
   if (event.severity === "action") return !!settings.notify_action;
   if (!settings[toggleFor(event)]) return false;
   return !inQuietHours(date, settings);
