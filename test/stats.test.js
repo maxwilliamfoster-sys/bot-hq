@@ -69,6 +69,7 @@ test("pollStats snapshots recent chess videos and inserts unknown sent Buffer po
   const snap = await env.DB.prepare("SELECT views, likes FROM snapshots WHERE post_id = ?").bind(esc.id).first();
   assert.deepEqual(snap, { views: 2310, likes: 188 });
   assert.equal(await getState(env.DB, "escape_pending"), "2");
+  assert.equal(await getState(env.DB, "escape_next_due"), "2026-10-21T15:30:00.000Z");
   // second poll: no new posts
   const again = await pollStats(env, env.DB, fakeApis(), new Date(NOW.getTime() + 3600e3), { youtube: false, buffer: true });
   assert.deepEqual(again.newPosts, []);

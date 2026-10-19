@@ -82,3 +82,42 @@ export async function setBadge(n) {
     if (n > 0) await navigator.setAppBadge(n); else await navigator.clearAppBadge();
   } catch { /* badge is a nicety */ }
 }
+
+const UK_TIME = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+const UK_DAY = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", weekday: "short" });
+const UK_YMD = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" });
+
+// "14:00", "Tue 09:15" when it isn't today (UK time).
+export function ukClock(iso, now = Date.now()) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  const t = UK_TIME.format(d);
+  return UK_YMD.format(d) === UK_YMD.format(new Date(now)) ? t : `${UK_DAY.format(d)} ${t}`;
+}
+
+// A view that keeps itself fresh: fills `root` now, again every `every` ms while the
+// page is visible and the view is on screen, and when pulled down from the top.
+export function liveView(root, fill, { every = 60000 } = {}) {
+  const ptr = el("div", { class: "ptr", "aria-hidden": "true" }, "Release to refresh");
+  let busy = false;
+  const refresh = async () => {
+    if (busy || !root.isConnected) return;
+    busy = true;
+    try { root.replaceChildren(ptr, ...(await fill())); } catch (e) { if (e instanceof SignedOut) location.reload(); else toast("Couldn't refresh. Check your connection."); }
+    busy = false;
+  };
+  const timer = setInterval(() => {
+    if (!root.isConnected) return clearInterval(timer);
+    if (document.visibilityState === "visible") refresh();
+  }, every);
+  let startY = null;
+  root.addEventListener("touchstart", e => { startY = window.scrollY <= 0 ? e.touches[0].clientY : null; }, { passive: true });
+  root.addEventListener("touchmove", e => {
+    if (startY !== null) ptr.classList.toggle("show", e.touches[0].clientY - startY > 70);
+  }, { passive: true });
+  root.addEventListener("touchend", () => {
+    if (ptr.classList.contains("show")) { ptr.classList.remove("show"); refresh(); }
+    startY = null;
+  });
+  return { ptr, refresh };
+}

@@ -102,3 +102,19 @@ test("new Escape Cup Buffer posts become 'posted' events; old ones don't", async
   const posted = (await e.DB.prepare("SELECT bot, title FROM events WHERE kind = 'posted'").all()).results;
   assert.deepEqual(posted, [{ bot: "escape", title: "Escape Cup posted: Match new" }]);
 });
+
+test("hourly tick refreshes today's gate checks from the bots' gate logs", async () => {
+  const e = await env({ GH_READ_TOKEN: "t" });
+  const log = { entries: [{ checked_at: "2026-10-20T09:10:00+00:00", ok: true, ai: { available: true } },
+    { checked_at: "2026-10-17T09:10:00+00:00", ok: true, ai: { available: true } }] };
+  const fetchFn = async url => {
+    if (url.includes("/contents/upload_gate_log.json")) return new Response(JSON.stringify(log));
+    if (url.includes("/actions/runs?")) return Response.json({ workflow_runs: [] });
+    return new Response(null, { status: 201 });
+  };
+  await runSchedule({}, e, ctx, fetchFn, new Date("2026-10-20T10:02:00Z"));
+  const rows = (await e.DB.prepare("SELECT bot, at FROM gate ORDER BY bot").all()).results;
+  assert.deepEqual(rows.map(r => r.bot), ["bcf", "chess", "escape"]);   // only the recent entry, once per bot
+  await runSchedule({}, e, ctx, fetchFn, new Date("2026-10-20T11:02:00Z"));
+  assert.equal(await e.DB.prepare("SELECT COUNT(*) n FROM gate").first("n"), 3);
+});

@@ -7,6 +7,7 @@ import { getState, setState } from "./settings.js";
 import { checkRuns } from "./watch/runs.js";
 import { pollStats } from "./watch/stats.js";
 import { thinPlan } from "./thin.js";
+import { refreshGate } from "./watch/gate.js";
 
 const H = 3600e3;
 const MILESTONES = [1, 6, 24, 72];      // 72h is stored for graphs; alerts use 1/6/24
@@ -165,6 +166,7 @@ export async function runSchedule(event, env, ctx, fetchFn = fetch, now = new Da
     const r = await step(env, now, "TikTok stats", () => pollStats(env, db, fetchFn, now, { youtube: false, buffer: true }));
     if (r?.newPosts?.length) await step(env, now, "new posts", () => announceNewPosts(env, r.newPosts, now));
     await step(env, now, "posting gaps", () => checkGaps(env, db, now));
+    await step(env, now, "gate logs", () => refreshGate(env, db, fetchFn, now));
   }
   await step(env, now, "doing well", () => checkDoingWell(env, db, now));
   if (now.getUTCHours() === 3 && hourly) await step(env, now, "thinning", () => thinSnapshots(db, now));

@@ -6,6 +6,7 @@ import { validateEvent, processEvent } from "./events.js";
 import { clock } from "./bots.js";
 import { recordPostFromEvent } from "./watch/stats.js";
 import { ingest } from "./ingest.js";
+import { liveData, botsData } from "./views.js";
 
 const MAX_BODY = 512 * 1024;
 
@@ -70,6 +71,9 @@ export const routes = [
     const r = await processEvent(env, v.event, now);
     return json({ id: r.id, count: r.count, pushed: r.pushed });
   }],
+
+  ["GET", "/api/live", "session", async ({ env }) => json(await liveData(env.DB, clock(env)))],
+  ["GET", "/api/bots", "session", async ({ env }) => json(await botsData(env.DB, clock(env)))],
 
   ["POST", "/api/ingest", "bot", async ({ env, body }) => json(await ingest(env.DB, body))],
 

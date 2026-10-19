@@ -123,6 +123,8 @@ async function pollBuffer(env, db, fetchFn, now) {
   }
   const pending = { bcf: 0, escape: 0 };
   for (const s of scheduled) if (channels[s.channel]) pending[channels[s.channel]]++;
+  const nextEscape = scheduled.filter(s => channels[s.channel] === "escape" && s.due).map(s => s.due).sort()[0];
+  await setState(db, "escape_next_due", nextEscape ? new Date(nextEscape).toISOString() : "");
   await setState(db, "escape_pending", pending.escape);
   await setState(db, "escape_pending_at", at);
   return { n, newPosts, pending };

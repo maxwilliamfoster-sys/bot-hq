@@ -259,3 +259,21 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+
+/* Pull to refresh + Live/Bots extras */
+.ptr { height: 0; overflow: hidden; text-align: center; font-size: 13px; color: var(--muted); transition: height .15s; }
+.ptr.show { height: 32px; line-height: 32px; }
+.post { color: inherit; text-decoration: none; }
+.post .when { font-size: 13px; color: var(--muted); }
+.facts a { color: inherit; text-decoration: none; }
+.wf { display: grid; grid-template-columns: 1fr auto; gap: 2px var(--s3); padding: var(--s3) 0; border-top: 1px solid var(--line); color: inherit; text-decoration: none; align-items: center; min-height: 44px; }
+.wf:first-of-type { margin-top: var(--s3); }
+.wf .name { font-weight: 600; }
+.wf .when { font-size: 13px; color: var(--muted); grid-column: 1 / -1; }
+.wf .dots { display: flex; gap: 4px; }
+.wf .dots .dot { margin: 0; }
+.meter { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin-top: var(--s2); }
+.meter span { display: block; height: 100%; background: var(--bot, var(--muted)); }
+.meter.is-full span { background: var(--alarm); }
+@media (prefers-reduced-motion: reduce) { .ptr { transition: none; } }
+.post .delta.muted { color: var(--muted); }
