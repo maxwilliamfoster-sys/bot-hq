@@ -1,12 +1,13 @@
 // JSON API. Each route declares who may call it: "open", "session" (the phone) or "bot" (bearer token).
 import { login, logout, hasSession, bearerOk, sessionCookie, clearCookie } from "./auth.js";
-import { getSettings, putSettings } from "./settings.js";
+import { getSettings, putSettings, getState, setState } from "./settings.js";
 import { saveSubscription, removeSubscription, pushAll } from "./push.js";
 import { validateEvent, processEvent } from "./events.js";
 import { clock } from "./bots.js";
 import { recordPostFromEvent } from "./watch/stats.js";
 import { ingest } from "./ingest.js";
 import { liveData, botsData } from "./views.js";
+import { runGraph, validSaved, PRESETS } from "./query.js";
 
 const MAX_BODY = 512 * 1024;
 
@@ -74,6 +75,23 @@ export const routes = [
 
   ["GET", "/api/live", "session", async ({ env }) => json(await liveData(env.DB, clock(env)))],
   ["GET", "/api/bots", "session", async ({ env }) => json(await botsData(env.DB, clock(env)))],
+
+  ["GET", "/api/graph", "session", async ({ env, url }) => {
+    let spec;
+    try { spec = JSON.parse(url.searchParams.get("spec") || ""); } catch { return json({ error: "bad_spec" }, 400); }
+    const out = await runGraph(env.DB, spec, clock(env));
+    return out.error ? json(out, 400) : json(out);
+  }],
+  ["GET", "/api/graphs", "session", async ({ env }) => {
+    const saved = await getState(env.DB, "graphs");
+    return json(saved ? JSON.parse(saved) : PRESETS);
+  }],
+  ["PUT", "/api/graphs", "session", async ({ env, body }) => {
+    if (!validSaved(body)) return json({ error: "bad_graphs" }, 400);
+    const clean = body.map(g => ({ name: g.name.trim(), spec: g.spec }));
+    await setState(env.DB, "graphs", JSON.stringify(clean));
+    return json(clean);
+  }],
 
   ["POST", "/api/ingest", "bot", async ({ env, body }) => json(await ingest(env.DB, body))],
 
