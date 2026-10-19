@@ -93,7 +93,12 @@ test("avg % watched, pass rate and followers", async () => {
 test("best posting hour groups by UK hour", async () => {
   const env = await seeded();
   const out = await runGraph(env.DB, PRESETS[2].spec, NOW);
-  assert.deepEqual(out.labels, ["14:00", "22:00"]);                       // 13:05Z and 21:05Z in BST
+  assert.equal(out.labels.length, 24);                                    // the whole day, gaps stay visible
+  assert.equal(out.labels[0], "00:00");
+  const d = out.series[0].data;
+  assert.deepEqual([d[14], d[22], d[13]], [700, 300, null]);               // 13:05Z and 21:05Z in BST
+  const wk = await runGraph(env.DB, { metric: "posts", bots: ["chess"], range: "all", groupBy: "weekday", chart: "bar" }, NOW);
+  assert.deepEqual(wk.labels, ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
 });
 
 test("GET /api/graph and saved graphs", async () => {

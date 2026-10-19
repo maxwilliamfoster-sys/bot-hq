@@ -124,6 +124,9 @@ export async function runGraph(db, spec, now = new Date()) {
     if (!c.has(key)) c.set(key, []);
     c.get(key).push(Number(r.value));
   }
+  // Clock-style groupings always show the whole cycle, so a quiet hour reads as a gap.
+  if (rows.length && q.group === "post_hour") for (let h = 0; h < 24; h++) { const k = String(h).padStart(2, "0"); if (!buckets.has(k)) buckets.set(k, `${k}:00`); }
+  if (rows.length && q.group === "weekday") WEEKDAYS.forEach((d, i) => { if (!buckets.has(String(i))) buckets.set(String(i), d); });
   const keys = [...buckets.keys()].sort((a, b) =>
     (q.group === "post_hour" || q.group === "weekday" ? Number(a) - Number(b) : a < b ? -1 : a > b ? 1 : 0));
   if (q.compare === "bots") names.sort((a, b) => spec.bots.indexOf(botId(a)) - spec.bots.indexOf(botId(b)));

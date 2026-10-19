@@ -185,7 +185,7 @@ a { color: inherit; }
   background: var(--surface); color: var(--ink); font: 18px var(--text); width: 100%;
 }
 .error { color: var(--alarm); font-weight: 600; }
-.back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; border: 0; background: none; color: var(--focus); font: 600 17px var(--text); cursor: pointer; margin-bottom: var(--s3); }
+.back { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; border: 0; background: none; color: var(--focus); font: 600 17px var(--text); cursor: pointer; margin-bottom: var(--s3); }
 
 /* ---------- Settings rows ---------- */
 .list { background: var(--surface); border-radius: var(--r-block); overflow: hidden; }
@@ -277,3 +277,28 @@ a { color: inherit; }
 .meter.is-full span { background: var(--alarm); }
 @media (prefers-reduced-motion: reduce) { .ptr { transition: none; } }
 .post .delta.muted { color: var(--muted); }
+
+/* ---------- Graphs: tiles, builder, sheet ---------- */
+.btn-small { min-height: 40px; padding: 0 var(--s4); font-size: 15px; border-radius: 12px; }
+.tile { text-decoration: none; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+.tile-chart { height: 64px; display: grid; align-items: center; font-size: 13px; }
+.tile-chart canvas { width: 100% !important; height: 64px !important; }
+.tile-dots { display: flex; gap: 4px; }
+.bot-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bot, var(--muted)); }
+.hint { font-size: 14px; }
+.chart-full { height: min(60vh, 460px); }
+.chart-box.is-table { height: auto; max-height: 70vh; overflow: auto; }
+.chart-box.is-empty { height: auto; }
+.chart-box .empty { padding: var(--s5) var(--s3); }
+.cell-n { font-size: 12px; color: var(--muted); }
+.builder .preview-wrap { position: sticky; top: calc(var(--safe-t) + var(--s2)); z-index: 2; background: var(--bg); padding-bottom: var(--s2); }
+.builder-preview { height: 220px; box-shadow: 0 0 0 1px var(--line); }
+.builder-preview.is-table { max-height: 220px; }
+.preview-meta { font-size: 13px; margin-top: var(--s2); }
+.custom-range { display: flex; gap: var(--s3); flex-wrap: wrap; margin-top: var(--s3); }
+.custom-range label { display: grid; gap: 4px; font-size: 14px; color: var(--muted); }
+.sheet-wrap { position: fixed; inset: 0; z-index: 30; background: rgba(8, 14, 22, .45); display: grid; align-items: end; }
+.sheet { background: var(--bg); border-radius: var(--r-block) var(--r-block) 0 0; padding: var(--s5) var(--s4) calc(var(--safe-b) + var(--s5)); }
+.sheet h2 { margin-bottom: var(--s4); font-size: 20px; }
+@media (prefers-reduced-motion: no-preference) { .sheet { animation: sheet-up .18s ease-out; } }
+@keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } }
