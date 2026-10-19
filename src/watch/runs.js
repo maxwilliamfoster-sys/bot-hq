@@ -71,15 +71,22 @@ export async function checkRuns(env, db, fetchFn = fetch, now = new Date()) {
   const errors = [];
   for (const repo of REPOS) {
     try {
-      const known = await db.prepare("SELECT COUNT(*) AS n FROM runs WHERE repo = ?").bind(repo).first("n");
-      const seeding = known === 0;
+      const seeding = !(await db.prepare("SELECT 1 AS x FROM runs WHERE repo = ? LIMIT 1").bind(repo).first("x"));
       const { workflow_runs = [] } = await ghJson(env, fetchFn,
         `/repos/${OWNER}/${repo}/actions/runs?per_page=10&status=completed`);
-      for (const run of workflow_runs.slice().reverse()) {        // oldest first
-        const ins = await db.prepare(
-          "INSERT OR IGNORE INTO runs (repo, run_id, workflow, conclusion, at, url, alerted) VALUES (?, ?, ?, ?, ?, ?, 0)")
-          .bind(repo, run.id, run.name, run.conclusion, run.updated_at || run.created_at, run.html_url).run();
-        if (ins.meta.changes === 0 || seeding) continue;
+      if (!workflow_runs.length) continue;
+      // Free-plan Workers have a small per-invocation query budget: one lookup + one batch per repo.
+      const ids = workflow_runs.map(r => r.id);
+      const { results: seen } = await db.prepare(
+        `SELECT run_id FROM runs WHERE repo = ? AND run_id IN (${ids.map(() => "?").join(",")})`).bind(repo, ...ids).all();
+      const seenIds = new Set(seen.map(r => Number(r.run_id)));
+      const fresh = workflow_runs.filter(r => !seenIds.has(Number(r.id))).reverse();   // oldest first
+      if (!fresh.length) continue;
+      await db.batch(fresh.map(run => db.prepare(
+        "INSERT OR IGNORE INTO runs (repo, run_id, workflow, conclusion, at, url, alerted) VALUES (?, ?, ?, ?, ?, ?, 0)")
+        .bind(repo, run.id, run.name, run.conclusion, run.updated_at || run.created_at, run.html_url)));
+      if (seeding) continue;
+      for (const run of fresh) {
         const ev = eventFor(repo, run);
         if (!ev) continue;
         const details = await failureDetails(env, fetchFn, repo, run.id);
