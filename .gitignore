@@ -1,0 +1,7 @@
+node_modules/
+.dev.vars
+.wrangler/
+public/app.js
+.superpowers/
+__pycache__/
+test/e2e/shots/
