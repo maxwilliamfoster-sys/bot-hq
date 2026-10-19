@@ -1,0 +1,25 @@
+{
+  "name": "bot-hq",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Phone app for the content bots: push alerts, live analytics, copy-paste fix prompts",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "build": "esbuild src/ui/app.js --bundle --format=esm --minify --outfile=public/app.js",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "dependencies": {
+    "@pushforge/builder": "^1.0.0",
+    "chart.js": "^4.4.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "wrangler": "^4.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true,
+    "workerd@1.20261019.1": true
+  }
+}
