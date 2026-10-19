@@ -2,6 +2,8 @@
 import { login, logout, hasSession, bearerOk, sessionCookie, clearCookie } from "./auth.js";
 import { getSettings, putSettings } from "./settings.js";
 import { saveSubscription, removeSubscription, pushAll } from "./push.js";
+import { validateEvent, processEvent } from "./events.js";
+import { clock } from "./bots.js";
 
 const MAX_BODY = 512 * 1024;
 
@@ -57,6 +59,13 @@ export const routes = [
     json(await pushAll(env, env.DB, {
       title: "Bot HQ test ✅", body: "Notifications are working on this device.", url: "/#/settings", tag: "test",
     }, pushFetch(env)))],
+
+  ["POST", "/api/event", "bot", async ({ env, body }) => {
+    const v = validateEvent(body);
+    if (!v.ok) return json({ error: v.error }, 400);
+    const r = await processEvent(env, v.event, clock(env));
+    return json({ id: r.id, count: r.count, pushed: r.pushed });
+  }],
 
   ["GET", "/api/settings", "session", async ({ env }) => json(await getSettings(env.DB))],
   ["PUT", "/api/settings", "session", async ({ env, body }) => json(await putSettings(env.DB, body))],
