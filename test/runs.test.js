@@ -111,3 +111,9 @@ test("tailLines keeps the last n lines without timestamps", () => {
   assert.equal(tailLines("2026-01-01T00:00:00.1Z a\nb\n\n", 2), "a\nb");
   assert.equal(tailLines("", 5), "");
 });
+
+test("every repo failing (e.g. an expired token) throws so the scheduler reports it", async () => {
+  const e = await env();
+  const down = async () => new Response("Bad credentials", { status: 401 });
+  await assert.rejects(checkRuns(e, e.DB, down, NOW), /GitHub 401/);
+});

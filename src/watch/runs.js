@@ -68,6 +68,7 @@ function eventFor(repo, run) {
 export async function checkRuns(env, db, fetchFn = fetch, now = new Date()) {
   if (!env.GH_READ_TOKEN) return [];
   const created = [];
+  const errors = [];
   for (const repo of REPOS) {
     try {
       const known = await db.prepare("SELECT COUNT(*) AS n FROM runs WHERE repo = ?").bind(repo).first("n");
@@ -92,7 +93,10 @@ export async function checkRuns(env, db, fetchFn = fetch, now = new Date()) {
       }
     } catch (e) {
       console.error("checkRuns", repo, e?.message || e);
+      errors.push(e);
     }
   }
+  // One flaky repo is noise; all of them failing (bad token, GitHub down) needs reporting.
+  if (errors.length === REPOS.length) throw errors[0];
   return created;
 }
