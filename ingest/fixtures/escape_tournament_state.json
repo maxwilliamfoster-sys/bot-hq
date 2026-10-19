@@ -1,0 +1,93 @@
+{
+ "edition": 1,
+ "log": [
+  {
+   "edition": 1,
+   "r": 0,
+   "m": 0,
+   "a": "gb-sct",
+   "b": "ch",
+   "winner": "ch",
+   "seed": 93052674003,
+   "theme": "neon",
+   "due": "2026-09-29T21:20:19.967364+00:00",
+   "buffer_id": "6abc2b89bc79f7218889713e",
+   "status": "published",
+   "link": "https://tiktok.com/@cuh2g/video/7691070201583979809"
+  },
+  {
+   "edition": 1,
+   "r": 0,
+   "m": 1,
+   "a": "pl",
+   "b": "uy",
+   "winner": "uy",
+   "seed": 118630431040,
+   "theme": "ocean",
+   "due": "2026-09-30T18:30:00+00:00",
+   "buffer_id": "6abc2e6fbc79f7218889ccd2",
+   "status": "published",
+   "link": "https://tiktok.com/@cuh2g/video/7691397558987459872"
+  },
+  {
+   "edition": 1,
+   "winner": "ph",
+   "seed": 4906619001,
+   "theme": "sunset",
+   "due": "2026-10-14T15:30:00+00:00",
+   "buffer_id": "6ace8429212d8766037262bf",
+   "status": "published",
+   "file": "royale001_4906619001.mp4",
+   "length": 30.5,
+   "series": "royale",
+   "heat": 1,
+   "codes": [
+    "nz",
+    "it",
+    "co",
+    "kr",
+    "cl",
+    "ar",
+    "ie",
+    "gb-eng",
+    "ph",
+    "cm",
+    "dk",
+    "ng",
+    "nl",
+    "fr",
+    "mx",
+    "se"
+   ],
+   "podium": [
+    "ph",
+    "se",
+    "it"
+   ],
+   "link": "https://tiktok.com/@5lmvill/video/7696546539182886177"
+  },
+  {
+   "edition": 1,
+   "winner": "nl",
+   "seed": 256055476014,
+   "theme": "candy",
+   "due": "2026-10-19T15:30:00+00:00",
+   "buffer_id": "6ad4eba7ae173d6e000aebaa",
+   "status": "scheduled",
+   "file": "ec01_r3_m00_256055476014.mp4",
+   "length": 21.7,
+   "loop": {
+    "escape-cup-format-1": "control"
+   },
+   "gate": {
+    "ok": true,
+    "sha256": "6c8415d7906fcd69467924b7f0e07f0d823e136ce9349334f624ed4bded5e6c5",
+    "checked_at": "2026-10-18T15:53:02+00:00"
+   },
+   "r": 3,
+   "m": 0,
+   "a": "ph",
+   "b": "nl"
+  }
+ ]
+}

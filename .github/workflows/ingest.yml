@@ -1,0 +1,38 @@
+name: Nightly backfill
+
+# Reads the history the bots commit (read-only) and sends new rows to Bot HQ.
+on:
+  schedule:
+    - cron: '15 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      HAS_TOKEN: ${{ secrets.GH_READ_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test the parsers
+        run: python -m unittest ingest.test_backfill
+      - name: Backfill
+        if: env.HAS_TOKEN == 'true'
+        env:
+          GH_READ_TOKEN: ${{ secrets.GH_READ_TOKEN }}
+          APP_URL: https://bot-hq.maxwilliamfoster.workers.dev
+          APP_EVENTS_TOKEN: ${{ secrets.APP_EVENTS_TOKEN }}
+        run: python -m ingest.backfill
+      - name: Not set up yet
+        if: env.HAS_TOKEN != 'true'
+        run: echo "::notice::GH_READ_TOKEN secret not set yet - backfill skipped (see README go-live steps)."

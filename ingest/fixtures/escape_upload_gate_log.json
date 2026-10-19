@@ -1,0 +1,74 @@
+{
+ "entries": [
+  {
+   "checked_at": "2026-10-16T11:22:35+00:00",
+   "platform": "tiktok",
+   "file": "ec01_r2_m02_216350041060.mp4",
+   "sha256": "f933e47c2ace7fe6bb0ffc35bf5a39e7e1be57fa20f29ae3c06c99cf29f1bc83",
+   "head": "South Korea 🇰🇷 vs Italy 🇮🇹: 16 rings, one way out. Physics simulation",
+   "ok": true,
+   "failures": [],
+   "warnings": [
+    "AI review unavailable: AI review failed: HTTP 429: {\"error\":{\"message\":\"Request too large for model `qwen/qwen3.8-27b` in organization `org_01krgfnbpdf2jrvn8r60dwmzkz` service tier `on_demand` on output tokens per minute (OTPM): Limit 1000, Requested "
+   ],
+   "gate_version": "2026-10-16",
+   "report": {
+    "seconds": 20.48,
+    "lufs": -14.6,
+    "speech_match": null,
+    "longest_freeze": 0.0
+   },
+   "ai": {
+    "available": false,
+    "ok": false,
+    "coherence": null,
+    "quality": null,
+    "summary": null
+   }
+  },
+  {
+   "checked_at": "2026-10-16T16:41:08+00:00",
+   "platform": "tiktok",
+   "file": "royale004_47724846002.mp4",
+   "sha256": "7597d7ebec6706784f3c906f6dfe877d2eaeefc532e104c9876c2e11d395743e",
+   "head": "Country ball escape royale - 16 flags, one exit. Find your country",
+   "ok": false,
+   "failures": [
+    "same first caption line as a recent post (repetitive content): \"country ball escape royale - 16 flags, one exit. find your country\""
+   ],
+   "warnings": [],
+   "gate_version": "2026-10-16",
+   "report": {
+    "seconds": 33.43,
+    "lufs": -13.4,
+    "speech_match": null,
+    "longest_freeze": 0.0
+   }
+  },
+  {
+   "checked_at": "2026-10-16T16:42:29+00:00",
+   "platform": "tiktok",
+   "file": "royale004_47724846006.mp4",
+   "sha256": "5e10c44769268290db3effb8e25c0bd7bd55b011175b8314257d6bbe5ac2bda7",
+   "head": "Ball escape simulation: 16 countries, only one breaks out first",
+   "ok": true,
+   "failures": [],
+   "warnings": [],
+   "gate_version": "2026-10-16",
+   "report": {
+    "seconds": 29.18,
+    "lufs": -16.1,
+    "speech_match": null,
+    "longest_freeze": 0.0
+   },
+   "ai": {
+    "available": true,
+    "ok": true,
+    "coherence": 10,
+    "quality": 10,
+    "summary": "The video is a high-quality, coherent physics simulation that clearly tracks the progress of 16 country balls escaping rings, culminating in a clear winner (Jamaica) and a teaser for the next heat, with no policy violations.",
+    "tokens": 4055
+   }
+  }
+ ]
+}

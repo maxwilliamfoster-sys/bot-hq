@@ -1,0 +1,81 @@
+{
+ "entries": [
+  {
+   "checked_at": "2026-10-16T14:22:17+00:00",
+   "platform": "youtube_shorts",
+   "file": "puzzle_5T09i_20261016_142133_1.mp4",
+   "sha256": "549425e96a5d301885fe034bca9929e3062132c0c619704a725f33c084d15b13",
+   "head": "Can you spot what Magnus Carlsen missed in a one-minute game?",
+   "ok": true,
+   "failures": [],
+   "warnings": [
+    "AI review unavailable: AI review skipped: the free daily AI quota is used up (it refills over the next 24h)"
+   ],
+   "gate_version": "2026-10-16",
+   "report": {
+    "seconds": 21.47,
+    "lufs": -20.1,
+    "speech_match": 0.74,
+    "longest_freeze": 0.0
+   },
+   "ai": {
+    "available": false,
+    "ok": false,
+    "coherence": null,
+    "quality": null,
+    "summary": null,
+    "tokens": null
+   }
+  },
+  {
+   "checked_at": "2026-10-17T00:47:56+00:00",
+   "platform": "youtube_shorts",
+   "file": "puzzle_bGeB0_20261017_004736_1.mp4",
+   "sha256": "967d15cd186441319e777906d2472d1a61deb78750b64552a8e1fdd4e02138cf",
+   "head": "Magnus Carlsen spotted this decoy in a one-minute game. Your turn",
+   "ok": true,
+   "failures": [],
+   "warnings": [],
+   "gate_version": "2026-10-16",
+   "report": {
+    "seconds": 16.94,
+    "lufs": -20.2,
+    "speech_match": 0.85,
+    "longest_freeze": 0.0
+   },
+   "ai": {
+    "available": true,
+    "ok": true,
+    "coherence": 9,
+    "quality": 9,
+    "summary": "The video presents a coherent, well-rendered chess puzzle with a clear countdown, accurate move-by-move solution (d2 Kxd2 Nxf3+), and consistent on-screen text matching the narration and title.",
+    "tokens": 4126
+   }
+  },
+  {
+   "checked_at": "2026-10-17T05:03:36+00:00",
+   "platform": "youtube_shorts",
+   "file": "puzzle_Y4gN9_20261017_050319_1.mp4",
+   "sha256": "e982243bf05ffcdd514e5a25c5b3aceefe9e7efaed49c7ab01bd41fd1c21c3bf",
+   "head": "Find the best move — against Magnus Carlsen in a one-minute game. Can you?",
+   "ok": true,
+   "failures": [],
+   "warnings": [],
+   "gate_version": "2026-10-16",
+   "report": {
+    "seconds": 17.44,
+    "lufs": -20.4,
+    "speech_match": 0.76,
+    "longest_freeze": 0.0
+   },
+   "ai": {
+    "available": true,
+    "ok": true,
+    "coherence": 9,
+    "quality": 9,
+    "summary": "The video presents a coherent, well-rendered chess puzzle against Magnus Carlsen with a clear countdown, readable on-screen text, and a solution sequence (axb3 axb3 Qa4) that matches the narration and caption.",
+    "tokens": 4133
+   }
+  }
+ ]
+}

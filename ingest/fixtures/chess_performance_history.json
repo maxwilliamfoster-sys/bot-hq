@@ -1,0 +1,60 @@
+{
+ "posts": {
+  "N7IA3y6RGcI": {
+   "posted_at": "2026-08-28T13:47:26.748386+00:00",
+   "title": "Mate in 2 — can you see it?",
+   "category": "mateIn2",
+   "phenomenon": "0Y24m",
+   "hook": "easy",
+   "background": "board",
+   "target_seconds": 22,
+   "actual_seconds": 22.0,
+   "word_count": 34,
+   "stats": {
+    "duration": 23,
+    "views": 1087,
+    "likes": 4,
+    "views_per_day": 20.8554,
+    "age_days": 52.12,
+    "avg_view_pct": 62.81,
+    "avg_view_seconds": 14,
+    "fetched_at": "2026-10-19T16:41:45.524418+00:00"
+   }
+  },
+  "YkkI7LMCkNg": {
+   "posted_at": "2026-10-19T16:41:39.829041+00:00",
+   "title": "Win material — even Magnus Carlsen missed it. Can you?",
+   "category": "fork",
+   "phenomenon": "vZwy8",
+   "hook": "famous-missed",
+   "background": "board",
+   "target_seconds": 17,
+   "actual_seconds": 16.9,
+   "word_count": 31,
+   "radar": [],
+   "slot": "2026-10-19T14:00:00+00:00",
+   "exp": {
+    "motion": false,
+    "choice": false
+   },
+   "format": "v1-countdown",
+   "loop": {
+    "chess-exp.motion-1": "control",
+    "chess-exp.choice-1": "control"
+   },
+   "stats": {}
+  }
+ },
+ "observed": {
+  "N7IA3y6RGcI": {
+   "duration": 23,
+   "views": 1087,
+   "likes": 4,
+   "views_per_day": 20.8554,
+   "age_days": 52.12,
+   "avg_view_pct": 62.81,
+   "avg_view_seconds": 14,
+   "fetched_at": "2026-10-19T16:41:45.524418+00:00"
+  }
+ }
+}

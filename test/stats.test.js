@@ -105,3 +105,13 @@ test("a posted event records the post for live tracking", async () => {
     { id: "chess:YkkI7LMCkNg", bot: "chess", platform: "youtube", title: "Mate in 2", url: "https://youtube.com/shorts/YkkI7LMCkNg" },
   ]);
 });
+
+test("a Buffer post whose TikTok video was backfilled reuses that post", async () => {
+  const env = await makeEnv(ENV);
+  await env.DB.prepare("INSERT INTO posts (id, bot, platform, external_id, title, posted_at) VALUES ('bcf:7400000000000000002','bcf','tiktok','7400000000000000002','Backfilled','2026-10-20T11:45:30.000Z')").run();
+  const r = await pollStats(env, env.DB, fakeApis(), NOW, { youtube: false, buffer: true });
+  assert.deepEqual(r.newPosts.map(p => p.external_id), ["65f0aaa1"]);
+  assert.equal(await env.DB.prepare("SELECT COUNT(*) n FROM posts WHERE bot = 'bcf'").first("n"), 1);
+  assert.equal(await env.DB.prepare("SELECT url FROM posts WHERE id = 'bcf:7400000000000000002'").first("url"),
+    "https://www.tiktok.com/@buriedcasefiles/video/7400000000000000002");
+});

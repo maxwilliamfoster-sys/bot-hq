@@ -5,6 +5,7 @@ import { saveSubscription, removeSubscription, pushAll } from "./push.js";
 import { validateEvent, processEvent } from "./events.js";
 import { clock } from "./bots.js";
 import { recordPostFromEvent } from "./watch/stats.js";
+import { ingest } from "./ingest.js";
 
 const MAX_BODY = 512 * 1024;
 
@@ -69,6 +70,8 @@ export const routes = [
     const r = await processEvent(env, v.event, now);
     return json({ id: r.id, count: r.count, pushed: r.pushed });
   }],
+
+  ["POST", "/api/ingest", "bot", async ({ env, body }) => json(await ingest(env.DB, body))],
 
   ["GET", "/api/settings", "session", async ({ env }) => json(await getSettings(env.DB))],
   ["PUT", "/api/settings", "session", async ({ env, body }) => json(await putSettings(env.DB, body))],

@@ -100,14 +100,26 @@ async function pollBuffer(env, db, fetchFn, now) {
   const at = now.toISOString();
   const newPosts = [];
   let n = 0;
+  // BuriedCasefiles history is keyed by TikTok video id (nightly backfill): reuse those posts.
+  const tiktokId = p => /\/video\/(\d+)/.exec(p.link || "")?.[1];
+  const tids = sent.filter(p => channels[p.channel] === "bcf").map(tiktokId).filter(Boolean);
+  const backfilled = new Set();
+  if (tids.length) {
+    const { results } = await db.prepare(`SELECT id FROM posts WHERE id IN (${tids.map(() => "?").join(",")})`)
+      .bind(...tids.map(t => `bcf:${t}`)).all();
+    results.forEach(r => backfilled.add(r.id));
+  }
   for (const p of sent) {
     const bot = channels[p.channel];
     if (!bot) continue;
+    const tid = tiktokId(p);
+    const known = bot === "bcf" && tid && backfilled.has(`bcf:${tid}`) ? `bcf:${tid}` : null;
+    const id = known || postId(bot, p.external_id);
     const post = { bot, platform: "tiktok", external_id: p.external_id, posted_at: p.sent_at, url: p.link,
       title: p.text.split("\n")[0].slice(0, 120) };
-    if (await insertPost(db, post)) newPosts.push(post);
-    else if (p.link) await db.prepare("UPDATE posts SET url = COALESCE(url, ?) WHERE id = ?").bind(p.link, postId(bot, p.external_id)).run();
-    if (p.views !== null) { await snapshot(db, postId(bot, p.external_id), at, p); n++; }
+    if (!known && await insertPost(db, post)) newPosts.push(post);
+    else if (p.link) await db.prepare("UPDATE posts SET url = COALESCE(url, ?) WHERE id = ?").bind(p.link, id).run();
+    if (p.views !== null) { await snapshot(db, id, at, p); n++; }
   }
   const pending = { bcf: 0, escape: 0 };
   for (const s of scheduled) if (channels[s.channel]) pending[channels[s.channel]]++;
