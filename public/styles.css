@@ -291,7 +291,7 @@ a { color: inherit; }
 .chart-box.is-empty { height: auto; }
 .chart-box .empty { padding: var(--s5) var(--s3); }
 .cell-n { font-size: 12px; color: var(--muted); }
-.builder .preview-wrap { position: sticky; top: calc(var(--safe-t) + var(--s2)); z-index: 2; background: var(--bg); padding-bottom: var(--s2); }
+.builder .preview-wrap { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: calc(var(--safe-t) + var(--s2)) 0 var(--s2); margin-top: calc(-1 * (var(--safe-t) + var(--s2))); }
 .builder-preview { height: 220px; box-shadow: 0 0 0 1px var(--line); }
 .builder-preview.is-table { max-height: 220px; }
 .preview-meta { font-size: 13px; margin-top: var(--s2); }
