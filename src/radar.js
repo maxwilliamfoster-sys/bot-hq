@@ -46,7 +46,7 @@ export async function weeklyRadarCheck(env, db, fetchFn, now) {
   await processEvent(env, {
     bot: "chess", kind: "radar_weekly", severity: "action",
     title: "Chess Radar: a week of data is ready",
-    body: "Open the Radar tab, copy the prompt and paste it into Claude. It picks this week's A/B tests from the data.",
+    body: "Open the Radar tab, copy the prompt and paste it into Claude. Claude proposes new test ideas from the week's data. The tests already queued start by themselves.",
     data: {}, dedupe_key: `radar_weekly:${now.toISOString().slice(0, 10)}`,
   }, now);
 }
