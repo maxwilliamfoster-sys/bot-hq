@@ -60,3 +60,67 @@ test("GET /api/radar needs the session and serves the trimmed data", async () =>
   assert.equal(res.status, 200);
   assert.equal((await res.json()).n_channels, 82);
 });
+
+// ---- weekly reminder -------------------------------------------------------
+import { weeklyRadarCheck } from "../src/radar.js";
+import { runSchedule } from "../src/schedule.js";
+import { setState, getState } from "../src/settings.js";
+
+const FRESH = { ...INSIGHTS, generated: Date.parse("2026-10-27T07:00:00Z") / 1000 };
+const evs = env => env.DB.prepare("SELECT bot, kind, severity, title, fix_prompt FROM events WHERE kind = 'radar_weekly'").all().then(r => r.results);
+const pushes = [];
+const weeklyEnv = () => makeEnv({ PUSH_FETCH: async (u, o) => { pushes.push(u); return new Response(null, { status: 201 }); } });
+
+test("weekly reminder: the first look only starts the clock", async () => {
+  const env = await weeklyEnv();
+  await weeklyRadarCheck(env, env.DB, ok(FRESH), new Date("2026-10-20T10:00:00Z"));
+  assert.equal((await evs(env)).length, 0);
+  assert.ok(await getState(env.DB, "radar_weekly_at"));
+});
+
+test("weekly reminder: nothing before a week has passed", async () => {
+  const env = await weeklyEnv();
+  await setState(env.DB, "radar_weekly_at", "2026-10-20T10:00:00.000Z");
+  await weeklyRadarCheck(env, env.DB, ok(FRESH), new Date("2026-10-27T09:00:00Z"));   // 6d23h
+  assert.equal((await evs(env)).length, 0);
+});
+
+test("weekly reminder: after a week it raises one 'needs you' alert, once", async () => {
+  const env = await weeklyEnv();
+  await setState(env.DB, "radar_weekly_at", "2026-10-20T10:00:00.000Z");
+  await weeklyRadarCheck(env, env.DB, ok(FRESH), new Date("2026-10-27T10:00:00Z"));
+  await weeklyRadarCheck(env, env.DB, ok(FRESH), new Date("2026-10-27T11:00:00Z"));
+  const rows = await evs(env);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].severity, "action");
+  assert.equal(rows[0].bot, "chess");
+  assert.equal(rows[0].fix_prompt, null);                       // the prompt lives on the Radar tab
+  assert.match(rows[0].title, /Radar/);
+});
+
+test("weekly reminder: waits for a fresh report instead of nagging about a stale one", async () => {
+  const env = await weeklyEnv();
+  await setState(env.DB, "radar_weekly_at", "2026-10-20T10:00:00.000Z");
+  await weeklyRadarCheck(env, env.DB, ok(INSIGHTS), new Date("2026-10-27T10:00:00Z"));    // report is a week old
+  await weeklyRadarCheck(env, env.DB, async () => new Response("", { status: 404 }), new Date("2026-10-27T10:00:00Z"));
+  assert.equal((await evs(env)).length, 0);
+  await weeklyRadarCheck(env, env.DB, ok(FRESH), new Date("2026-10-27T12:00:00Z"));        // later it arrives
+  assert.equal((await evs(env)).length, 1);
+});
+
+test("weekly reminder: runs from the hourly schedule, not at night", async () => {
+  const env = await weeklyEnv();
+  await setState(env.DB, "radar_weekly_at", "2026-10-20T04:00:00.000Z");
+  const f = async url => String(url).includes("shorts-radar") ? new Response(JSON.stringify(FRESH)) : new Response(null, { status: 201 });
+  await runSchedule({}, env, { waitUntil() {} }, f, new Date("2026-10-27T03:02:00Z"));    // 04:02 UK
+  assert.equal((await evs(env)).length, 0);
+  await runSchedule({}, env, { waitUntil() {} }, f, new Date("2026-10-27T08:02:00Z"));    // 09:02 UK
+  assert.equal((await evs(env)).length, 1);
+});
+
+import { pushUrl } from "../src/events.js";
+
+test("the weekly reminder's push opens the Radar tab; other alerts open their event", () => {
+  assert.equal(pushUrl({ kind: "radar_weekly" }, 7), "/#/radar");
+  assert.equal(pushUrl({ kind: "run_failed" }, 7), "/#/event/7");
+});

@@ -28,7 +28,8 @@ export function validateEvent(obj) {
   return { ok: true, event: { bot, kind, severity, title, body, data, dedupe_key } };
 }
 
-const promptFor = ev => (ev.severity === "action" || ev.severity === "warn")
+// A reminder has no fix prompt: its prompt is the Radar tab's.
+const promptFor = ev => ev.kind !== "radar_weekly" && (ev.severity === "action" || ev.severity === "warn")
   ? buildFixPrompt({
     bot: ev.bot, kind: ev.kind, title: ev.title, body: ev.body, repo: ev.data.repo,
     runUrl: ev.data.run_url, step: ev.data.step, logTail: ev.data.log_tail,
@@ -70,6 +71,8 @@ export async function openActionCount(db) {
   return db.prepare("SELECT COUNT(*) AS n FROM events WHERE severity = 'action' AND resolved_at IS NULL").first("n");
 }
 
+export const pushUrl = (event, id) => (event.kind === "radar_weekly" ? "/#/radar" : `/#/event/${id}`);
+
 // Record an already-validated event and push it if the rules say so.
 export async function processEvent(env, event, now = new Date(), fetchFn) {
   const db = env.DB;
@@ -81,7 +84,7 @@ export async function processEvent(env, event, now = new Date(), fetchFn) {
     const r = await pushAll(env, db, {
       title,
       body: (event.body || "").slice(0, 140),
-      url: `/#/event/${rec.id}`,
+      url: pushUrl(event, rec.id),
       tag: event.dedupe_key,
       badge: await openActionCount(db),
       severity: event.severity,

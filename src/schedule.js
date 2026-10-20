@@ -8,6 +8,7 @@ import { checkRuns } from "./watch/runs.js";
 import { pollStats } from "./watch/stats.js";
 import { thinPlan } from "./thin.js";
 import { refreshGate } from "./watch/gate.js";
+import { weeklyRadarCheck } from "./radar.js";
 
 const H = 3600e3;
 const MILESTONES = [1, 6, 24, 72];      // 72h is stored for graphs; alerts use 1/6/24
@@ -180,6 +181,8 @@ export async function runSchedule(event, env, ctx, fetchFn = fetch, now = new Da
     if (r?.newPosts?.length) await step(env, now, "new posts", () => announceNewPosts(env, r.newPosts, now));
     await step(env, now, "posting gaps", () => checkGaps(env, db, now));
     await step(env, now, "gate logs", () => refreshGate(env, db, fetchFn, now));
+    const ukH = ukParts(now).hhmm;
+    if (ukH >= "08:00" && ukH < "21:00") await step(env, now, "radar reminder", () => weeklyRadarCheck(env, db, fetchFn, now));
   }
   await step(env, now, "doing well", () => checkDoingWell(env, db, now, hourly));
   if (now.getUTCHours() === 3 && hourly) await step(env, now, "thinning", () => thinSnapshots(db, now));

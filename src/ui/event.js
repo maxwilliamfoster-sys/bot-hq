@@ -4,6 +4,7 @@ import { api, el, ago, botTag, toast, setBadge } from "./lib.js";
 const SEV = { action: ["Needs you", "sev-action"], warn: ["Failed or blocked", "sev-warn"], good: ["Doing well", "sev-good"], info: ["For your info", "sev-info"] };
 
 function whatToDo(e) {
+  if (e.kind === "radar_weekly") return "Open the Radar tab, tap Copy prompt for Claude and paste it into Claude. When Claude has chosen the tests, tap Mark done.";
   if (e.kind === "run_failed") return "Copy the fix prompt and paste it into Claude. It has the failed step, the end of the log and the rules to follow.";
   if (e.fix_prompt && (e.severity === "action" || e.severity === "warn")) {
     return "Copy the fix prompt and paste it into Claude. When it's fixed, tap Mark done.";
@@ -65,6 +66,7 @@ export async function eventView({ arg, setTabCount }) {
       el("p", { class: "body-text" }, e.body || e.title),
       e.data.step ? el("p", { class: "muted" }, `Failed step: ${e.data.step}`) : null),
     todo ? el("section", { class: "block" }, el("h3", {}, "What to do"), el("p", {}, todo)) : null,
+    e.kind === "radar_weekly" ? el("a", { class: "btn btn-primary btn-block btn-copy", href: "#/radar" }, "Open the Radar tab") : null,
     links(e.data).length ? el("div", { class: "btn-row" }, links(e.data)) : null,
     pre ? el("section", { class: "block" }, el("h3", {}, "Fix prompt"), pre) : null,
     e.resolved ? el("p", { class: "muted" }, "Done.") : (e.severity === "action" || e.severity === "warn" ? done : null));
