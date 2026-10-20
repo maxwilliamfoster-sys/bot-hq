@@ -104,3 +104,30 @@ test("the morning digest is recorded but never pushed (the 07:30 summary is the 
   const ev = { ...base, severity: "info", kind: "digest" };
   assert.equal(pushDecision(ev, 1, DEFAULT_SETTINGS, hours(0)), false);
 });
+
+test("a failure that lasts days stays one row but pushes again each day", async () => {
+  const db = makeD1();
+  const ev = validateEvent(base).event;
+  const pushed = [];
+  for (let h = 0; h <= 30; h += 2) {
+    const r = await recordEvent(db, ev, hours(h));
+    if (pushDecision(ev, r.pushCount, DEFAULT_SETTINGS, hours(h))) pushed.push(h);
+  }
+  assert.deepEqual(pushed, [0, 4, 24, 28]);
+  assert.deepEqual((await db.prepare("SELECT count FROM events").all()).results, [{ count: 16 }]);
+});
+
+test("validation rejects prototype names as bots", () => {
+  for (const bot of ["toString", "__proto__", "constructor"]) assert.equal(validateEvent({ ...base, bot }).ok, false);
+});
+
+test("a BuriedCasefiles posted event doesn't add a post: the Buffer poller owns TikTok posts", async () => {
+  const env = await makeEnv();
+  const link = "https://www.tiktok.com/@buriedcasefiles/video/7350000000000000000";
+  const body = { bot: "bcf", kind: "posted", severity: "info", title: "BuriedCasefiles posted: The Case", body: link,
+    data: { buffer_id: link } };
+  const res = await call(env, "POST", "/api/event", { body, headers: { authorization: "Bearer bot-token" } });
+  assert.equal(res.status, 200);
+  assert.equal(await env.DB.prepare("SELECT COUNT(*) n FROM posts").first("n"), 0);
+  assert.equal(await env.DB.prepare("SELECT COUNT(*) n FROM events WHERE kind = 'posted'").first("n"), 1);
+});

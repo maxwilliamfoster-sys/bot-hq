@@ -8,6 +8,9 @@ const REPOS = ["chess-puzzle-automation", "youtube-automation", "escape-cup", "b
 const ACTION = new Set(["failure", "timed_out", "startup_failure"]);
 const LOG_BYTES = 16000;
 const LOG_LINES = 60;
+// Each alerted run costs 3 GitHub fetches plus one per phone; the free plan allows 50 a tick.
+const DETAILS_PER_TICK = 3;
+const RETRY_MS = 2 * 24 * 3600e3;      // an unalerted run older than this is history, not news
 
 const ghHeaders = env => ({
   authorization: `Bearer ${env.GH_READ_TOKEN}`,
@@ -43,19 +46,22 @@ async function failureDetails(env, fetchFn, repo, runId) {
     const location = redirect.headers.get("location");
     if (!location) return out;
     const log = await fetchFn(location, { headers: { range: `bytes=-${LOG_BYTES}` } });
-    if (log.ok) {
+    if (log.status === 206) {
       const text = await log.text();
       // A ranged read starts mid-line; drop the partial first line.
-      out.log_tail = tailLines(log.status === 206 ? text.slice(text.indexOf("\n") + 1) : text, LOG_LINES).slice(-6000);
+      out.log_tail = tailLines(text.slice(text.indexOf("\n") + 1), LOG_LINES).slice(-6000);
+    } else {
+      await log.body?.cancel();    // Range ignored: the whole log could blow the CPU/memory budget
     }
   } catch { /* the alert still goes out, the prompt says the log was unavailable */ }
   return out;
 }
 
+// Stored runs have no trigger `event`; only alert-worthy runs are stored with alerted = 0.
 function eventFor(repo, run) {
   const bot = botForRepo(repo) || "system";
   const name = BOTS[bot].name;
-  const workflow = run.name || "workflow";
+  const workflow = run.name || run.workflow || "workflow";
   if (ACTION.has(run.conclusion)) {
     return { bot, severity: "action", title: `${name}: ${workflow} failed` };
   }
@@ -69,33 +75,41 @@ export async function checkRuns(env, db, fetchFn = fetch, now = new Date()) {
   if (!env.GH_READ_TOKEN) return [];
   const created = [];
   const errors = [];
+  let budget = DETAILS_PER_TICK;
+  const stale = new Date(now.getTime() - RETRY_MS).toISOString();
   for (const repo of REPOS) {
     try {
       const seeding = !(await db.prepare("SELECT 1 AS x FROM runs WHERE repo = ? LIMIT 1").bind(repo).first("x"));
       const { workflow_runs = [] } = await ghJson(env, fetchFn,
         `/repos/${OWNER}/${repo}/actions/runs?per_page=10&status=completed`);
-      if (!workflow_runs.length) continue;
-      // Free-plan Workers have a small per-invocation query budget: one lookup + one batch per repo.
-      const ids = workflow_runs.map(r => r.id);
-      const { results: seen } = await db.prepare(
-        `SELECT run_id FROM runs WHERE repo = ? AND run_id IN (${ids.map(() => "?").join(",")})`).bind(repo, ...ids).all();
-      const seenIds = new Set(seen.map(r => Number(r.run_id)));
-      const fresh = workflow_runs.filter(r => !seenIds.has(Number(r.id))).reverse();   // oldest first
-      if (!fresh.length) continue;
-      await db.batch(fresh.map(run => db.prepare(
-        "INSERT OR IGNORE INTO runs (repo, run_id, workflow, conclusion, at, url, alerted) VALUES (?, ?, ?, ?, ?, ?, 0)")
-        .bind(repo, run.id, run.name, run.conclusion, run.updated_at || run.created_at, run.html_url)));
-      if (seeding) continue;
-      for (const run of fresh) {
+      if (workflow_runs.length) {
+        const ids = workflow_runs.map(r => r.id);
+        const { results: seen } = await db.prepare(
+          `SELECT run_id FROM runs WHERE repo = ? AND run_id IN (${ids.map(() => "?").join(",")})`).bind(repo, ...ids).all();
+        const seenIds = new Set(seen.map(r => Number(r.run_id)));
+        const fresh = workflow_runs.filter(r => !seenIds.has(Number(r.id)));
+        // Marked alerted only once the alert is recorded, so a tick that dies part-way retries next time.
+        if (fresh.length) {
+          await db.batch(fresh.map(run => db.prepare(
+            "INSERT OR IGNORE INTO runs (repo, run_id, workflow, conclusion, at, url, alerted) VALUES (?, ?, ?, ?, ?, ?, ?)")
+            .bind(repo, run.id, run.name, run.conclusion, run.updated_at || run.created_at, run.html_url,
+              seeding || !eventFor(repo, run) ? 1 : 0)));
+        }
+      }
+      if (seeding || budget <= 0) continue;
+      const { results: pending } = await db.prepare(
+        "SELECT run_id, workflow, conclusion, url FROM runs WHERE repo = ? AND alerted = 0 AND at > ? ORDER BY at, run_id LIMIT ?")
+        .bind(repo, stale, budget).all();
+      for (const run of pending) {
+        budget--;
         const ev = eventFor(repo, run);
-        if (!ev) continue;
-        const details = await failureDetails(env, fetchFn, repo, run.id);
+        const details = await failureDetails(env, fetchFn, repo, run.run_id);
         const r = await processEvent(env, {
           ...ev, kind: "run_failed", body: `Run finished: ${run.conclusion}.`,
-          data: { run_url: run.html_url, repo, step: details.step, log_tail: details.log_tail },
-          dedupe_key: `run:${repo}:${run.name}:${run.conclusion}`,
+          data: { run_url: run.url, repo, step: details.step, log_tail: details.log_tail },
+          dedupe_key: `run:${repo}:${run.workflow}:${run.conclusion}`,
         }, now);
-        await db.prepare("UPDATE runs SET alerted = 1 WHERE repo = ? AND run_id = ?").bind(repo, run.id).run();
+        await db.prepare("UPDATE runs SET alerted = 1 WHERE repo = ? AND run_id = ?").bind(repo, run.run_id).run();
         created.push(r);
       }
     } catch (e) {

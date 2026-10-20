@@ -59,7 +59,7 @@ export async function eventView({ arg, setTabCount }) {
       el("p", { class: `detail-sev ${sevClass}` }, sevText),
       el("h1", { class: "detail-title" }, e.title),
       el("p", { class: "muted" }, el("span", { dataset: { bot: e.bot } }, botTag(e.bot)), " ",
-        e.count > 1 ? `${e.count} times in 24h, last ${ago(e.last_at)}` : ago(e.at))),
+        e.count > 1 ? `${e.count} times, first ${ago(e.at)}, last ${ago(e.last_at)}` : ago(e.at))),
     e.fix_prompt ? el("button", { class: "btn btn-primary btn-block btn-copy", onclick: () => copy(e.fix_prompt, pre) }, "Copy fix prompt") : null,
     el("section", { class: "block" }, el("h3", {}, "What happened"),
       el("p", { class: "body-text" }, e.body || e.title),

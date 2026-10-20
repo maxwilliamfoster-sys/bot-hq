@@ -49,10 +49,12 @@ async function insertPost(db, p) {
   return r.meta.changes > 0;
 }
 
+const snapshotStmt = (db, post_id, at, s) => db.prepare(
+  "INSERT OR IGNORE INTO snapshots (post_id, at, views, likes, comments, shares, avg_watch_s, reach) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+  .bind(post_id, at, s.views, s.likes, s.comments, s.shares ?? null, s.avg_watch_s ?? null, s.reach ?? null);
+
 async function snapshot(db, post_id, at, s) {
-  await db.prepare(
-    "INSERT OR IGNORE INTO snapshots (post_id, at, views, likes, comments, shares, avg_watch_s, reach) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-    .bind(post_id, at, s.views, s.likes, s.comments, s.shares ?? null, s.avg_watch_s ?? null, s.reach ?? null).run();
+  await snapshotStmt(db, post_id, at, s).run();
 }
 
 // A Buffer call allowed today? Counts calls per UTC day in settings.
@@ -76,13 +78,9 @@ async function pollYouTube(env, db, fetchFn, now) {
   const res = await fetchFn(url);
   if (!res.ok) throw new Error(`YouTube ${res.status}`);
   const at = now.toISOString();
-  let n = 0;
-  for (const s of parseYouTubeStats(await res.json())) {
-    if (!byExt.has(s.external_id)) continue;
-    await snapshot(db, byExt.get(s.external_id), at, s);
-    n++;
-  }
-  return n;
+  const rows = parseYouTubeStats(await res.json()).filter(s => byExt.has(s.external_id));
+  if (rows.length) await db.batch(rows.map(s => snapshotStmt(db, byExt.get(s.external_id), at, s)));
+  return rows.length;
 }
 
 async function pollBuffer(env, db, fetchFn, now) {
@@ -143,9 +141,11 @@ export async function pollStats(env, db, fetchFn = fetch, now = new Date(), { yo
   return out;
 }
 
-// "posted" events from the bots put the post on the Live tab straight away.
+// "posted" events from the chess bot put the post on the Live tab straight away. TikTok
+// posts come from the Buffer poller only: BuriedCasefiles' event carries a link or a
+// "Scheduled for..." note rather than the Buffer id, so it would add a ghost duplicate.
 export async function recordPostFromEvent(db, event, now = new Date()) {
-  if (event.kind !== "posted") return false;
+  if (event.kind !== "posted" || event.bot !== "chess") return false;
   const d = event.data || {};
   const external_id = d.external_id || d.buffer_id;
   if (!external_id) return false;

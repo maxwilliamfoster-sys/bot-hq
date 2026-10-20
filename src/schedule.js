@@ -15,6 +15,7 @@ const GOOD_AT = [1, 6, 24];
 const SETTLE_H = 4;                      // a milestone is final this long after it passes
 const BACKLOG_PER_TICK = 40;
 const NEW_POST_WINDOW_H = 2;
+const RUNS_KEEP_D = 60;
 
 async function step(env, now, name, fn) {
   try {
@@ -39,27 +40,32 @@ async function snapshotPoints(db, post) {
   return results.map(s => [ageH(s.at, post.posted_at), s.views]);
 }
 
-// Settle views@Nh for posts old enough that it can't change any more.
-async function settleMilestones(db, now) {
+// Settle views@Nh for posts old enough that it can't change any more. Every tick looks at
+// recent posts only; the hourly tick also sweeps older ones (e.g. from the nightly backfill).
+// Snapshots are read only when a milestone is due and missing (D1 bills every row read).
+async function settleMilestones(db, now, sweep) {
+  const last = MILESTONES[MILESTONES.length - 1];
+  const from = sweep ? "" : new Date(now.getTime() - (last + 2 * SETTLE_H) * H).toISOString();
   const { results } = await db.prepare(
-    `SELECT p.id, p.posted_at FROM posts p
-     WHERE p.posted_at IS NOT NULL AND p.posted_at < ?
+    `SELECT p.id, p.posted_at, (SELECT GROUP_CONCAT(m.h) FROM milestones m WHERE m.post_id = p.id) AS have
+     FROM posts p
+     WHERE p.posted_at > ? AND p.posted_at < ?
        AND (SELECT COUNT(*) FROM milestones m WHERE m.post_id = p.id) < ?
      ORDER BY p.posted_at DESC LIMIT ?`)
-    .bind(new Date(now.getTime() - (1 + SETTLE_H) * H).toISOString(), MILESTONES.length, BACKLOG_PER_TICK).all();
+    .bind(from, new Date(now.getTime() - (1 + SETTLE_H) * H).toISOString(), MILESTONES.length, BACKLOG_PER_TICK).all();
   for (const post of results) {
     const age = (now.getTime() - Date.parse(post.posted_at)) / H;
+    const have = new Set(String(post.have || "").split(",").filter(Boolean).map(Number));
+    const due = MILESTONES.filter(h => age >= h + SETTLE_H && !have.has(h));
+    if (!due.length) continue;
     const points = await snapshotPoints(db, post);
-    for (const h of MILESTONES) {
-      if (age < h + SETTLE_H) continue;
-      await db.prepare("INSERT OR IGNORE INTO milestones (post_id, h, views) VALUES (?, ?, ?)")
-        .bind(post.id, h, valueAtAge(points, h, true)).run();
-    }
+    await db.batch(due.map(h => db.prepare("INSERT OR IGNORE INTO milestones (post_id, h, views) VALUES (?, ?, ?)")
+      .bind(post.id, h, valueAtAge(points, h, true))));
   }
 }
 
-async function checkDoingWell(env, db, now) {
-  await settleMilestones(db, now);
+async function checkDoingWell(env, db, now, sweep) {
+  await settleMilestones(db, now, sweep);
   const { results: fresh } = await db.prepare(
     "SELECT id, bot, title, url, posted_at FROM posts WHERE posted_at > ? AND posted_at <= ?")
     .bind(new Date(now.getTime() - (24 + SETTLE_H) * H).toISOString(), new Date(now.getTime() - H).toISOString()).all();
@@ -68,10 +74,11 @@ async function checkDoingWell(env, db, now) {
     const age = (now.getTime() - Date.parse(post.posted_at)) / H;
     const due = GOOD_AT.filter(h => age >= h && age < h + SETTLE_H);
     if (!due.length || !BOT_IDS.includes(post.bot)) continue;
-    const points = await snapshotPoints(db, post);
+    let points = null;
     for (const h of due) {
       const key = `good:${post.id}:${h}`;
       if (await db.prepare("SELECT 1 AS x FROM events WHERE dedupe_key = ?").bind(key).first("x")) continue;
+      points ??= await snapshotPoints(db, post);
       const views = valueAtAge(points, h, true);
       if (views == null) continue;
       const hk = `${post.bot}|${h}`;
@@ -121,17 +128,19 @@ async function checkGaps(env, db, now) {
 
 async function thinSnapshots(db, now) {
   const { results } = await db.prepare(
-    `SELECT s.id, s.post_id, s.at FROM snapshots s
+    `SELECT s.id, s.post_id, s.at, p.posted_at FROM snapshots s JOIN posts p ON p.id = s.post_id
      WHERE s.post_id IN (SELECT DISTINCT post_id FROM snapshots WHERE at < ?)`)
     .bind(new Date(now.getTime() - 7 * 24 * H).toISOString()).all();
-  const postIds = [...new Set(results.map(r => r.post_id))];
-  const postedAt = {};
-  for (const id of postIds) postedAt[id] = await db.prepare("SELECT posted_at FROM posts WHERE id = ?").bind(id).first("posted_at");
+  const postedAt = Object.fromEntries(results.map(r => [r.post_id, r.posted_at]));
   const doomed = thinPlan(results, postedAt, now);
+  const deletes = [];
   for (let i = 0; i < doomed.length; i += 100) {
     const chunk = doomed.slice(i, i + 100);
-    await db.prepare(`DELETE FROM snapshots WHERE id IN (${chunk.map(() => "?").join(",")})`).bind(...chunk).run();
+    deletes.push(db.prepare(`DELETE FROM snapshots WHERE id IN (${chunk.map(() => "?").join(",")})`).bind(...chunk));
   }
+  // Run history only feeds the Bots tab's recent list and the "seen" check.
+  deletes.push(db.prepare("DELETE FROM runs WHERE at < ?").bind(new Date(now.getTime() - RUNS_KEEP_D * 24 * H).toISOString()));
+  await db.batch(deletes);
   return doomed.length;
 }
 
@@ -168,11 +177,12 @@ export async function runSchedule(event, env, ctx, fetchFn = fetch, now = new Da
     await step(env, now, "posting gaps", () => checkGaps(env, db, now));
     await step(env, now, "gate logs", () => refreshGate(env, db, fetchFn, now));
   }
-  await step(env, now, "doing well", () => checkDoingWell(env, db, now));
+  await step(env, now, "doing well", () => checkDoingWell(env, db, now, hourly));
   if (now.getUTCHours() === 3 && hourly) await step(env, now, "thinning", () => thinSnapshots(db, now));
 
+  // A whole hour, not one tick, so a late or failed 07:30 run still gets its summary out.
   const uk = ukParts(now);
-  if (uk.hhmm >= "07:30" && uk.hhmm < "07:35") {
+  if (uk.hhmm >= "07:30" && uk.hhmm < "08:30") {
     await step(env, now, "daily summary", async () => {
       if ((await getState(db, "summary_sent")) === uk.ymd) return;
       await setState(db, "summary_sent", uk.ymd);

@@ -83,8 +83,8 @@ test("doing well fires once per post per milestone against the same bot's histor
     await e.DB.prepare("INSERT INTO snapshots (post_id, at, views) VALUES (?, ?, ?)")
       .bind("chess:new", new Date(Date.parse(posted) + min * 60e3).toISOString(), views).run();
   }
+  await runSchedule({}, e, ctx, okFetch, new Date("2026-10-20T10:02:00Z"));    // hourly: settles the history
   await runSchedule({}, e, ctx, okFetch, new Date("2026-10-20T10:07:00Z"));
-  await runSchedule({}, e, ctx, okFetch, new Date("2026-10-20T10:12:00Z"));
   const good = (await e.DB.prepare("SELECT title, dedupe_key, count FROM events WHERE severity = 'good'").all()).results;
   assert.equal(good.length, 1);
   assert.equal(good[0].dedupe_key, "good:chess:new:1");
@@ -117,4 +117,58 @@ test("hourly tick refreshes today's gate checks from the bots' gate logs", async
   assert.deepEqual(rows.map(r => r.bot), ["bcf", "chess", "escape"]);   // only the recent entry, once per bot
   await runSchedule({}, e, ctx, fetchFn, new Date("2026-10-20T11:02:00Z"));
   assert.equal(await e.DB.prepare("SELECT COUNT(*) n FROM gate").first("n"), 3);
+});
+
+// Records every SQL statement the code prepares, to check what a tick reads.
+function spySql(e) {
+  const sqls = [];
+  const prep = e.DB.prepare.bind(e.DB);
+  e.DB.prepare = sql => { sqls.push(sql); return prep(sql); };
+  return sqls;
+}
+
+test("a tick with no milestone due reads no snapshots", async () => {
+  const e = await env();
+  const now = new Date("2026-10-20T12:10:00Z");
+  await seedPosts(e, [["chess", "s1", "2026-10-19T06:10:00.000Z"]]);              // 30h old
+  for (const h of [1, 6, 24]) await e.DB.prepare("INSERT INTO milestones (post_id, h, views) VALUES ('chess:s1', ?, 10)").bind(h).run();
+  const sqls = spySql(e);
+  await runSchedule({}, e, ctx, okFetch, now);
+  assert.equal(sqls.filter(s => /FROM snapshots WHERE post_id = \?/.test(s)).length, 0);
+});
+
+test("an old unsettled post (e.g. backfilled) is settled on the hourly tick, not every 5 minutes", async () => {
+  const e = await env();
+  await seedPosts(e, [["chess", "old", "2026-10-01T09:00:00.000Z"]]);
+  const n = () => e.DB.prepare("SELECT COUNT(*) n FROM milestones WHERE post_id = 'chess:old'").first("n");
+  await runSchedule({}, e, ctx, okFetch, new Date("2026-10-20T12:10:00Z"));
+  assert.equal(await n(), 0);
+  await runSchedule({}, e, ctx, okFetch, new Date("2026-10-20T13:01:00Z"));
+  assert.equal(await n(), 4);
+});
+
+test("nightly thinning looks posts up in one query and prunes runs older than 60 days", async () => {
+  const e = await env();
+  const now = new Date("2026-10-20T03:02:00Z");
+  await seedPosts(e, [["chess", "t1", "2026-09-01T09:00:00.000Z"]]);
+  for (let i = 0; i < 24; i++) {          // 2 hours of 5-minute snapshots, 19 days later (outside the first 72h)
+    const at = new Date(Date.parse("2026-09-20T09:00:00Z") + i * 300e3).toISOString();
+    await e.DB.prepare("INSERT INTO snapshots (post_id, at, views) VALUES ('chess:t1', ?, ?)").bind(at, i).run();
+  }
+  await e.DB.prepare("INSERT INTO runs (repo, run_id, at, alerted) VALUES ('escape-cup', 1, '2026-08-01T00:00:00Z', 1), ('escape-cup', 2, '2026-10-19T00:00:00Z', 1)").run();
+  const sqls = spySql(e);
+  await runSchedule({}, e, ctx, okFetch, now);
+  assert.equal(sqls.filter(s => /SELECT posted_at FROM posts WHERE id = \?/.test(s)).length, 0);
+  assert.equal(await e.DB.prepare("SELECT COUNT(*) n FROM snapshots").first("n"), 2);   // newest per hour
+  assert.deepEqual((await e.DB.prepare("SELECT run_id FROM runs").all()).results, [{ run_id: 2 }]);
+});
+
+test("a summary missed at 07:30 still goes out later in the hour, once", async () => {
+  const e = await env();
+  await runSchedule({}, e, ctx, okFetch, new Date("2026-10-20T07:10:00Z"));    // 08:10 BST
+  await runSchedule({}, e, ctx, okFetch, new Date("2026-10-20T07:15:00Z"));
+  assert.equal(await count(e, "kind = 'summary'"), 1);
+  const late = await env();
+  await runSchedule({}, late, ctx, okFetch, new Date("2026-10-20T07:40:00Z"));  // 08:40 BST: too late
+  assert.equal(await count(late, "kind = 'summary'"), 0);
 });

@@ -33,6 +33,7 @@ function fakeGitHub({ runs = {}, logStatus = 200 } = {}) {
     }
     if (u.host === "blob.example") {
       assert.equal(new Headers(init.headers).get("range"), "bytes=-16000");
+      if (logStatus === "full") return new Response(LOG, { status: 200 });     // Range ignored
       return logStatus === 200 ? new Response(LOG, { status: 206 }) : new Response("no", { status: logStatus });
     }
     return new Response("[]", { status: 404 });
@@ -116,4 +117,37 @@ test("every repo failing (e.g. an expired token) throws so the scheduler reports
   const e = await env();
   const down = async () => new Response("Bad credentials", { status: 401 });
   await assert.rejects(checkRuns(e, e.DB, down, NOW), /GitHub 401/);
+});
+
+test("a failure whose alert threw is alerted on the next tick", async () => {
+  const e = await env();
+  await checkRuns(e, e.DB, fakeGitHub({ runs: { "chess-puzzle-automation": [run(1, "success")] } }), NOW);
+  const gh = fakeGitHub({ runs: { "chess-puzzle-automation": [run(2, "failure"), run(1, "success")] } });
+  await e.DB.prepare("ALTER TABLE events RENAME TO events_off").run();       // D1 hiccup while alerting
+  await checkRuns(e, e.DB, gh, NOW).catch(() => {});
+  await e.DB.prepare("ALTER TABLE events_off RENAME TO events").run();
+  const out = await checkRuns(e, e.DB, gh, new Date(NOW.getTime() + 300e3));
+  assert.equal(out.length, 1);
+  assert.equal(await e.DB.prepare("SELECT COUNT(*) n FROM events WHERE kind = 'run_failed'").first("n"), 1);
+});
+
+test("at most 3 failures get logs per tick (subrequest budget); the rest follow next tick", async () => {
+  const e = await env();
+  await checkRuns(e, e.DB, fakeGitHub({ runs: { "chess-puzzle-automation": [run(1, "success")] } }), NOW);
+  const fails = [6, 5, 4, 3, 2].map(id => run(id, "failure"));
+  const gh = fakeGitHub({ runs: { "chess-puzzle-automation": [...fails, run(1, "success")] } });
+  assert.equal((await checkRuns(e, e.DB, gh, NOW)).length, 3);
+  assert.equal(gh.calls.filter(u => u.endsWith("/jobs")).length, 3);
+  assert.equal((await checkRuns(e, e.DB, gh, new Date(NOW.getTime() + 300e3))).length, 2);
+  assert.equal((await checkRuns(e, e.DB, gh, new Date(NOW.getTime() + 600e3))).length, 0);
+  assert.equal(await e.DB.prepare("SELECT count FROM events WHERE kind = 'run_failed'").first("count"), 5);
+});
+
+test("a log server that ignores Range isn't read in full; the prompt says the log was unavailable", async () => {
+  const e = await env();
+  await checkRuns(e, e.DB, fakeGitHub({ runs: { "escape-cup": [run(1, "success")] } }), NOW);
+  await checkRuns(e, e.DB, fakeGitHub({ runs: { "escape-cup": [run(3, "failure"), run(1, "success")] }, logStatus: "full" }), NOW);
+  const ev = await e.DB.prepare("SELECT data_json, fix_prompt FROM events").first();
+  assert.equal(JSON.parse(ev.data_json).log_tail, "");
+  assert.match(ev.fix_prompt, /\(log unavailable/);
 });

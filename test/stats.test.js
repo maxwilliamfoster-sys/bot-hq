@@ -92,7 +92,7 @@ test("missing keys skip that source quietly", async () => {
   assert.deepEqual(apis.calls, { yt: 0, buffer: 0 });
 });
 
-test("a posted event records the post for live tracking", async () => {
+test("a chess posted event records the post for live tracking; TikTok ones are left to the Buffer poller", async () => {
   const env = await makeEnv();
   await recordPostFromEvent(env.DB, { bot: "chess", kind: "posted", title: "Chess posted: Mate in 2",
     data: { video_url: "https://youtube.com/shorts/YkkI7LMCkNg", external_id: "YkkI7LMCkNg" } }, NOW);
@@ -102,7 +102,6 @@ test("a posted event records the post for live tracking", async () => {
   await recordPostFromEvent(env.DB, { bot: "chess", kind: "post_failed", title: "x", data: { external_id: "z" } }, NOW);
   const { results } = await env.DB.prepare("SELECT id, bot, platform, title, url FROM posts ORDER BY id").all();
   assert.deepEqual(results, [
-    { id: "bcf:65f0bbb2", bot: "bcf", platform: "tiktok", title: "The Case", url: null },
     { id: "chess:YkkI7LMCkNg", bot: "chess", platform: "youtube", title: "Mate in 2", url: "https://youtube.com/shorts/YkkI7LMCkNg" },
   ]);
 });

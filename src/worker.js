@@ -9,6 +9,7 @@ export default {
     return env.ASSETS.fetch(request);
   },
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(runSchedule(event, env, ctx));
+    // The tick's own time, not the clock: a late start must not slip past the hourly/:30 checks.
+    ctx.waitUntil(runSchedule(event, env, ctx, fetch, new Date(event.scheduledTime || Date.now())));
   },
 };
