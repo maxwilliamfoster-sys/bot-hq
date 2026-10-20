@@ -60,16 +60,26 @@ export function doingWell(views, history, minN = 20) {
 
 // Posting gaps, worded like chess-puzzle-automation needs_you.check_posting.
 // lastPostAt: {chess, bcf} ISO or null; escapePending: scheduled Buffer posts, or null if unknown.
-export function postingGaps(lastPostAt, escapePending, now = new Date()) {
+// ctx says whether the app can actually see each bot's posts; without that, "no recent post" may just
+// mean "not connected yet" (20 Oct 2026: a queued 08:30 BuriedCasefiles post looked like a 39h gap):
+//   chessLinked  the chess bot has reached the app, so its "posted" events are arriving
+//   bcfFeedAt    when the Buffer poll last succeeded (trusted for BCF_FEED_FRESH_H)
+//   bcfNextDue   due time of the next BuriedCasefiles post already queued in Buffer
+const BCF_FEED_FRESH_H = 3;
+const BCF_QUEUE_COVERS_H = 24;
+export function postingGaps(lastPostAt, escapePending, now = new Date(), ctx = {}) {
   const out = [];
   const hoursSince = iso => (now.getTime() - Date.parse(iso)) / 3600e3;
   const gap = (bot, title, body) => out.push({ bot, kind: "no_posts", severity: "action", title, body, data: {}, dedupe_key: `no_posts:${bot}` });
-  if (lastPostAt.chess) {
+  if (lastPostAt.chess && ctx.chessLinked) {
     const h = hoursSince(lastPostAt.chess);
     if (h > 14) gap("chess", `Chess: no upload for ${Math.round(h)}h`,
       "Normally 3 a day. Check the Chess posting runs; an expired YouTube token needs reauth_manual.py on the PC.");
   }
-  if (lastPostAt.bcf) {
+  const bcfSeen = ctx.bcfFeedAt && hoursSince(ctx.bcfFeedAt) < BCF_FEED_FRESH_H;
+  const untilDue = ctx.bcfNextDue ? -hoursSince(ctx.bcfNextDue) : null;          // hours until the queued post
+  const bcfQueued = untilDue !== null && untilDue > 0 && untilDue < BCF_QUEUE_COVERS_H;
+  if (lastPostAt.bcf && bcfSeen && !bcfQueued) {
     const h = hoursSince(lastPostAt.bcf);
     if (h > 30) gap("bcf", `BuriedCasefiles: no TikTok post for ${Math.round(h)}h`,
       "Normally 3 a day. Check the BuriedCasefiles video runs and the inbox for blocked videos.");

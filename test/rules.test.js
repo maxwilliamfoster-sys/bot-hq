@@ -28,11 +28,32 @@ test("doingWell needs 20 past posts and the 90th percentile", () => {
 test("postingGaps thresholds", () => {
   const now = new Date("2026-10-20T12:00:00Z");
   const h = n => new Date(now.getTime() - n * 3600e3).toISOString();
-  assert.deepEqual(postingGaps({ chess: h(13), bcf: h(29) }, 2, now), []);
-  const out = postingGaps({ chess: h(15), bcf: h(31) }, 0, now);
+  const ctx = { chessLinked: true, bcfFeedAt: h(1), bcfNextDue: null };
+  assert.deepEqual(postingGaps({ chess: h(13), bcf: h(29) }, 2, now, ctx), []);
+  const out = postingGaps({ chess: h(15), bcf: h(31) }, 0, now, ctx);
   assert.deepEqual(out.map(e => [e.bot, e.severity, e.kind]),
     [["chess", "action", "no_posts"], ["bcf", "action", "no_posts"], ["escape", "action", "no_posts"]]);
   assert.match(out[0].title, /Chess: no upload for 15h/);
   assert.match(out[2].title, /Escape Cup: nothing is scheduled/);
-  assert.deepEqual(postingGaps({ chess: null, bcf: null }, null, now), []);  // unknown -> no alert
+  assert.deepEqual(postingGaps({ chess: null, bcf: null }, null, now, ctx), []);  // unknown -> no alert
+});
+
+test("postingGaps stays quiet about a bot whose feed it cannot trust", () => {
+  const now = new Date("2026-10-20T12:00:00Z");
+  const h = n => new Date(now.getTime() - n * 3600e3).toISOString();
+  const old = { chess: h(40), bcf: h(40) };
+  // 20 Oct 2026 false alarm: Buffer feed not connected yet, so the last TikTok post looked 39h old.
+  assert.deepEqual(postingGaps(old, null, now, { chessLinked: false, bcfFeedAt: null, bcfNextDue: null }), []);
+  assert.deepEqual(postingGaps(old, null, now, { chessLinked: false, bcfFeedAt: h(5), bcfNextDue: null }), []);
+  assert.deepEqual(postingGaps(old, null, now), []);                    // no context = no trust
+});
+
+test("postingGaps counts a post already queued in Buffer as covering the gap", () => {
+  const now = new Date("2026-10-20T12:00:00Z");
+  const h = n => new Date(now.getTime() - n * 3600e3).toISOString();
+  const base = { chessLinked: true, bcfFeedAt: h(1) };
+  const old = { chess: h(1), bcf: h(40) };
+  assert.deepEqual(postingGaps(old, null, now, { ...base, bcfNextDue: h(-6) }), []);          // due in 6h
+  assert.equal(postingGaps(old, null, now, { ...base, bcfNextDue: h(3) }).length, 1);         // overdue: Buffer is stuck
+  assert.equal(postingGaps(old, null, now, { ...base, bcfNextDue: h(-30) }).length, 1);       // too far away to cover
 });

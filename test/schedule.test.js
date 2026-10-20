@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { runSchedule } from "../src/schedule.js";
 import { makeEnv } from "./helpers.js";
+import { setState } from "../src/settings.js";
 
 const okFetch = async () => new Response(null, { status: 201 });
 const ctx = { waitUntil() {} };
@@ -54,14 +55,45 @@ test("a thrown poller still runs checkRuns and records one system warn", async (
   assert.equal(w[0].count, 2);
 });
 
+async function seedState(e, pairs) {
+  for (const [k, v] of Object.entries(pairs)) await setState(e.DB, k, v);
+}
+async function seedEvent(e, bot, at) {
+  await e.DB.prepare("INSERT INTO events (at, last_at, window_at, window_count, bot, kind, severity, title, body, data_json, dedupe_key, count) VALUES (?, ?, ?, 1, ?, 'ping', 'info', 't', '', '{}', ?, 1)")
+    .bind(at, at, at, bot, `ping:${bot}:${at}`).run();
+}
+const gaps = async e => (await e.DB.prepare("SELECT bot, severity FROM events WHERE kind = 'no_posts'").all()).results;
+
 test("hourly gap check alerts when chess stops posting", async () => {
   const e = await env();
   await seedPosts(e, [["chess", "a", "2026-10-19T18:00:00.000Z"], ["bcf", "b", "2026-10-20T08:00:00.000Z"]]);
+  await seedEvent(e, "chess", "2026-10-19T18:00:05.000Z");                    // the chess bot has reached the app
   await runSchedule({}, e, ctx, okFetch, new Date("2026-10-20T10:02:00Z"));    // 16h since chess
-  const ev = await e.DB.prepare("SELECT bot, severity FROM events WHERE kind = 'no_posts'").all();
-  assert.deepEqual(ev.results, [{ bot: "chess", severity: "action" }]);
+  assert.deepEqual(await gaps(e), [{ bot: "chess", severity: "action" }]);
   await runSchedule({}, e, ctx, okFetch, new Date("2026-10-20T10:22:00Z"));    // not on the hour: no recheck
   assert.equal(await e.DB.prepare("SELECT count FROM events WHERE kind = 'no_posts'").first("count"), 1);
+});
+
+test("no gap alerts while the app cannot yet see a bot's posts", async () => {
+  // The real 20 Oct incident: BuriedCasefiles was queued for 08:30 UK, but Buffer was not connected.
+  const e = await env();
+  await seedPosts(e, [["chess", "a", "2026-10-19T04:00:00.000Z"], ["bcf", "b", "2026-10-18T17:57:00.000Z"]]);
+  await runSchedule({}, e, ctx, okFetch, new Date("2026-10-20T10:02:00Z"));
+  assert.deepEqual(await gaps(e), []);
+});
+
+test("bcf gap alerts once Buffer is read and nothing is queued; a queued post silences it", async () => {
+  const e = await env();
+  await seedPosts(e, [["bcf", "b", "2026-10-18T17:57:00.000Z"]]);
+  await seedState(e, { bcf_polled_at: "2026-10-20T09:30:00.000Z", bcf_next_due: "" });
+  await runSchedule({}, e, ctx, okFetch, new Date("2026-10-20T10:02:00Z"));
+  assert.deepEqual(await gaps(e), [{ bot: "bcf", severity: "action" }]);
+
+  const q = await env();
+  await seedPosts(q, [["bcf", "b", "2026-10-18T17:57:00.000Z"]]);
+  await seedState(q, { bcf_polled_at: "2026-10-20T09:30:00.000Z", bcf_next_due: "2026-10-20T20:00:00.000Z" });
+  await runSchedule({}, q, ctx, okFetch, new Date("2026-10-20T10:02:00Z"));
+  assert.deepEqual(await gaps(q), []);
 });
 
 test("doing well fires once per post per milestone against the same bot's history", async () => {

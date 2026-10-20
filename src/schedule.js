@@ -123,7 +123,11 @@ async function checkGaps(env, db, now) {
   const at = await getState(db, "escape_pending_at");
   const fresh = at && now.getTime() - Date.parse(at) < 3 * H;      // stale count = unknown, not "empty"
   const pending = fresh ? Number(await getState(db, "escape_pending")) : null;
-  for (const ev of postingGaps(last, pending, now)) await processEvent(env, ev, now);
+  const chessLinked = !!(await db.prepare("SELECT 1 AS x FROM events WHERE bot = 'chess' AND at > ? LIMIT 1")
+    .bind(new Date(now.getTime() - 7 * 24 * H).toISOString()).first("x"));
+  const ctx = { chessLinked, bcfFeedAt: (await getState(db, "bcf_polled_at")) || null,
+    bcfNextDue: (await getState(db, "bcf_next_due")) || null };
+  for (const ev of postingGaps(last, pending, now, ctx)) await processEvent(env, ev, now);
 }
 
 async function thinSnapshots(db, now) {
