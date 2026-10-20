@@ -9,6 +9,7 @@ import { ingest } from "./ingest.js";
 import { liveData, botsData } from "./views.js";
 import { runGraph, validSaved, PRESETS } from "./query.js";
 import { inboxData, eventDetail, markEvent } from "./inbox.js";
+import { radarData } from "./radar.js";
 
 const MAX_BODY = 512 * 1024;
 
@@ -106,6 +107,8 @@ export const routes = [
     await setState(env.DB, "graphs", JSON.stringify(clean));
     return json(clean);
   }],
+
+  ["GET", "/api/radar", "session", async ({ env }) => json(await radarData(env.RADAR_FETCH || fetch))],
 
   ["POST", "/api/ingest", "bot", async ({ env, body }) => json(await ingest(env.DB, body))],
 

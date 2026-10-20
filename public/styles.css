@@ -227,7 +227,7 @@ a { color: inherit; }
 /* ---------- Tab bar ---------- */
 .tabs {
   position: fixed; inset: auto 0 0 0; z-index: 10;
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  display: grid; grid-template-columns: repeat(6, 1fr);
   height: calc(var(--tab-h) + var(--safe-b)); padding-bottom: var(--safe-b);
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   -webkit-backdrop-filter: saturate(1.6) blur(18px); backdrop-filter: saturate(1.6) blur(18px);
