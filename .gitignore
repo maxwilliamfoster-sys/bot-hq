@@ -7,3 +7,4 @@ __pycache__/
 test/e2e/shots/
 .playwright-mcp/
 .secrets.local
+.secrets*
