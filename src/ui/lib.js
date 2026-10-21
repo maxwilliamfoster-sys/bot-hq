@@ -47,7 +47,7 @@ export function toast(text) {
   toastTimer = setTimeout(() => t.classList.remove("show"), 2200);
 }
 
-export const BOT_NAMES = { chess: "Chess", bcf: "BuriedCasefiles", escape: "Escape Cup", system: "Bot HQ" };
+export const BOT_NAMES = { chess: "Chess", bcf: "BuriedCasefiles", escape: "Escape Cup", space: "Space Edits", system: "Bot HQ" };
 
 export const botTag = bot => el("span", { class: "bot-tag", dataset: { bot } }, BOT_NAMES[bot] || bot);
 

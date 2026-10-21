@@ -61,7 +61,7 @@ test("pollStats snapshots recent chess videos and inserts unknown sent Buffer po
   assert.equal(apis.calls.buffer, 1);
   assert.equal(r.snapshots, 2);       // 1 chess + 1 buffer (the BCF post has no metrics yet: no empty row)
   assert.deepEqual(r.newPosts.map(p => [p.bot, p.external_id]), [["escape", "65f0aaa1"], ["bcf", "65f0bbb2"]]);
-  assert.deepEqual(r.pending, { bcf: 0, escape: 2 });
+  assert.deepEqual(r.pending, { bcf: 0, escape: 2, space: 0 });
   const esc = await env.DB.prepare("SELECT * FROM posts WHERE external_id = '65f0aaa1'").first();
   assert.equal(esc.bot, "escape");
   assert.equal(esc.platform, "tiktok");

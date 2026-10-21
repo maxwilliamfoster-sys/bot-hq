@@ -78,7 +78,7 @@ test("GET /api/live: today's counts, views, 1-hour change and sparkline", async 
   const esc = live.bots.find(b => b.bot === "escape");
   assert.equal(esc.next_slot, "2026-10-20T15:30:00.000Z");
   assert.deepEqual(esc.today, { posted: 1, planned: 2 });
-  assert.deepEqual(live.bots.map(b => b.bot), ["chess", "bcf", "escape"]);
+  assert.deepEqual(live.bots.map(b => b.bot), ["chess", "bcf", "escape", "space"]);
 });
 
 test("GET /api/bots: workflows with last 5 runs, experiments from the digest, AI use vs cap", async () => {
@@ -103,4 +103,10 @@ test("GET /api/bots: workflows with last 5 runs, experiments from the digest, AI
   assert.deepEqual(bcf.ai, { used: 2, cap: 20, checks: 3 });          // UTC day only
   assert.deepEqual(chess.ai, { used: 0, cap: 10, checks: 0 });
   assert.deepEqual(out.experiments.map(x => x.id), ["escape-cup-format-1"]);
+});
+
+test("Space Edits next slot is the next scheduled Buffer post", () => {
+  const now = new Date("2026-10-20T12:00:00Z");
+  assert.equal(nextSlot("space", now, null, "2026-10-20T16:00:00.000Z"), "2026-10-20T16:00:00.000Z");
+  assert.equal(nextSlot("space", now, null, "2026-10-20T11:00:00.000Z"), null);
 });

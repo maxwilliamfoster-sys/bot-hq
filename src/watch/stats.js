@@ -85,11 +85,12 @@ async function pollYouTube(env, db, fetchFn, now) {
 
 async function pollBuffer(env, db, fetchFn, now) {
   const channels = { [env.BUFFER_CHANNEL_BCF]: "bcf", [env.BUFFER_CHANNEL_ESCAPE]: "escape" };
+  if (env.BUFFER_CHANNEL_SPACE) channels[env.BUFFER_CHANNEL_SPACE] = "space";   // optional: Space Edits (mcfiddler.bob)
   const res = await fetchFn(BUFFER, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${env.BUFFER_API_KEY}` },
     body: JSON.stringify({ query: BUFFER_QUERY,
-      variables: { o: env.BUFFER_ORG_ID, c: [env.BUFFER_CHANNEL_BCF, env.BUFFER_CHANNEL_ESCAPE] } }),
+      variables: { o: env.BUFFER_ORG_ID, c: Object.keys(channels) } }),
   });
   if (!res.ok) throw new Error(`Buffer ${res.status}`);
   const json = await res.json();
@@ -119,7 +120,7 @@ async function pollBuffer(env, db, fetchFn, now) {
     else if (p.link) await db.prepare("UPDATE posts SET url = COALESCE(url, ?) WHERE id = ?").bind(p.link, id).run();
     if (p.views !== null) { await snapshot(db, id, at, p); n++; }
   }
-  const pending = { bcf: 0, escape: 0 };
+  const pending = { bcf: 0, escape: 0, space: 0 };
   for (const s of scheduled) if (channels[s.channel]) pending[channels[s.channel]]++;
   const nextEscape = scheduled.filter(s => channels[s.channel] === "escape" && s.due).map(s => s.due).sort()[0];
   await setState(db, "escape_next_due", nextEscape ? new Date(nextEscape).toISOString() : "");
@@ -127,6 +128,10 @@ async function pollBuffer(env, db, fetchFn, now) {
   await setState(db, "escape_pending_at", at);
   const nextBcf = scheduled.filter(s => channels[s.channel] === "bcf" && s.due).map(s => s.due).sort()[0];
   await setState(db, "bcf_next_due", nextBcf ? new Date(nextBcf).toISOString() : "");
+  if (env.BUFFER_CHANNEL_SPACE) {
+    const nextSpace = scheduled.filter(s => channels[s.channel] === "space" && s.due).map(s => s.due).sort()[0];
+    await setState(db, "space_next_due", nextSpace ? new Date(nextSpace).toISOString() : "");
+  }
   await setState(db, "bcf_polled_at", at);
   return { n, newPosts, pending };
 }
