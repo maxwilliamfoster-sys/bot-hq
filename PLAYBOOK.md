@@ -75,7 +75,7 @@ Two optional secrets switch parts of this on. Without them those checks skip qui
 - `ZERNIO_API_KEY`: Eagle Eyes' posts, queue, failures and views.
 - `HEALTHCHECK_URL`: the ping URL of a healthchecks.io check. Set its period to 5 minutes and its grace time to 30 minutes.
 
-`GH_READ_TOKEN` must be able to read `level-up-quiz` (a private repo) for Eagle Eyes' runs to show. If Bots > Runs says "No runs seen yet" for it, the token needs that repo added.
+`GH_READ_TOKEN` must be able to read every bot repo, including the private `chess-puzzle-automation` and `level-up-quiz`. If it can't, you get "Bot HQ can't read its GitHub runs" naming the repo, and that bot's failed runs won't alert until the token has that repo added (Actions and Contents, read).
 
 ## When something looks wrong
 - **No pushes at all:** Settings shows "Not connected"? Reconnect. Still nothing: `npx wrangler tail` and fire a test.

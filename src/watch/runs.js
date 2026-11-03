@@ -6,6 +6,7 @@ import { processEvent } from "../events.js";
 const API = "https://api.github.com";
 const REPOS = ["chess-puzzle-automation", "youtube-automation", "escape-cup", "space-edits", "level-up-quiz", "bot-hq"];
 const ACTION = new Set(["failure", "timed_out", "startup_failure"]);
+const LOCKED_OUT = new Set([401, 403, 404]);
 const LOG_BYTES = 16000;
 const LOG_LINES = 60;
 // Each alerted run costs 3 GitHub fetches plus one per phone; the free plan allows 50 a tick.
@@ -21,7 +22,7 @@ const ghHeaders = env => ({
 
 async function ghJson(env, fetchFn, path) {
   const res = await fetchFn(`${API}${path}`, { headers: ghHeaders(env) });
-  if (!res.ok) throw new Error(`GitHub ${res.status} for ${path}`);
+  if (!res.ok) throw Object.assign(new Error(`GitHub ${res.status} for ${path}`), { status: res.status });
   return res.json();
 }
 
@@ -75,6 +76,7 @@ export async function checkRuns(env, db, fetchFn = fetch, now = new Date()) {
   if (!env.GH_READ_TOKEN) return [];
   const created = [];
   const errors = [];
+  const unreadable = [];
   let budget = DETAILS_PER_TICK;
   const stale = new Date(now.getTime() - RETRY_MS).toISOString();
   for (const repo of REPOS) {
@@ -115,9 +117,19 @@ export async function checkRuns(env, db, fetchFn = fetch, now = new Date()) {
     } catch (e) {
       console.error("checkRuns", repo, e?.message || e);
       errors.push(e);
+      if (LOCKED_OUT.has(e?.status)) unreadable.push([repo, e.status]);
     }
   }
   // One flaky repo is noise; all of them failing (bad token, GitHub down) needs reporting.
   if (errors.length === REPOS.length) throw errors[0];
+  // Being refused isn't a flake: until it's fixed, that bot's failed runs can't alert anyone.
+  for (const [repo, status] of unreadable) {
+    const bot = botForRepo(repo) || "system";
+    created.push(await processEvent(env, {
+      bot, kind: "repo_unreadable", severity: "warn", title: `${BOTS[bot].name}: Bot HQ can't read its GitHub runs`,
+      body: `GitHub answered ${status} for ${repo}. Give GH_READ_TOKEN access to this repo (Actions and Contents, read). Until then, this bot's failed runs won't alert you.`,
+      data: { repo }, dedupe_key: `repo_unreadable:${repo}`,
+    }, now));
+  }
   return created;
 }

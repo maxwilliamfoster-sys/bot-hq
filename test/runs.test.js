@@ -101,6 +101,35 @@ test("a GitHub API error for one repo doesn't stop the others", async () => {
   assert.equal(await e.DB.prepare("SELECT COUNT(*) n FROM runs WHERE repo = 'escape-cup'").first("n"), 1);
 });
 
+const oneRepoAnswers = status => async url => (url.includes("/chess-puzzle-automation/")
+  ? new Response("", { status })
+  : Response.json({ workflow_runs: [] }));
+
+test("a repo the token can't read raises a warning naming the repo", async () => {
+  const e = await makeEnv({ GH_READ_TOKEN: "t", PUSH_FETCH: async () => new Response(null, { status: 201 }) });
+  await checkRuns(e, e.DB, oneRepoAnswers(404), NOW);
+  await checkRuns(e, e.DB, oneRepoAnswers(404), new Date(NOW.getTime() + 300e3));
+  const { results } = await e.DB.prepare("SELECT * FROM events WHERE kind = 'repo_unreadable'").all();
+  assert.equal(results.length, 1);
+  assert.equal(results[0].bot, "chess");
+  assert.equal(results[0].severity, "warn");
+  assert.equal(results[0].dedupe_key, "repo_unreadable:chess-puzzle-automation");
+  assert.equal(results[0].count, 2);
+  assert.match(results[0].body, /GH_READ_TOKEN/);
+});
+
+test("a passing GitHub outage on one repo stays quiet", async () => {
+  const e = await makeEnv({ GH_READ_TOKEN: "t" });
+  await checkRuns(e, e.DB, oneRepoAnswers(502), NOW);
+  assert.equal(await e.DB.prepare("SELECT COUNT(*) n FROM events").first("n"), 0);
+});
+
+test("every repo unreadable reports once through the scheduler, not once per repo", async () => {
+  const e = await makeEnv({ GH_READ_TOKEN: "t" });
+  await assert.rejects(checkRuns(e, e.DB, async () => new Response("", { status: 401 }), NOW));
+  assert.equal(await e.DB.prepare("SELECT COUNT(*) n FROM events").first("n"), 0);
+});
+
 test("no token means no calls", async () => {
   const e = await makeEnv();
   const gh = fakeGitHub();
