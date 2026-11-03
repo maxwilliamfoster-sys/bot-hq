@@ -19,8 +19,8 @@ async function zernioJson(env, fetchFn, path) {
 export function parseZernioPosts(json) {
   return (json?.posts || []).map(p => {
     const tiktok = (p.platforms || []).find(x => x.platform === "tiktok") || {};
-    return { id: p._id, status: p.status, due: p.scheduledFor || null, text: p.content || "",
-      url: tiktok.platformPostUrl || null, error: tiktok.errorMessage || null };
+    return { id: p._id, status: p.status, due: p.scheduledFor || null, text: typeof p.content === "string" ? p.content : "",
+      url: tiktok.platformPostUrl || null, error: typeof tiktok.errorMessage === "string" ? tiktok.errorMessage : null };
   });
 }
 
