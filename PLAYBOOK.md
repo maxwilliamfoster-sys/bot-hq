@@ -41,6 +41,10 @@ npx wrangler secret put APP_EVENTS_TOKEN < .secrets.local
 ```
 `.secrets.local` is git-ignored; local tests read it. Until all 4 match, bot alerts fall back to Telegram, so nothing is lost.
 
+## Progress numbers (Bots tab)
+
+`Content-Bots/analytics-check/build_tracker.py` works them out on the PC and POSTs them to `/api/tracker` with the bot token (read from `.secrets.local`). Every full analytics check does this. The app only stores and shows the latest copy; Eagle Eyes appears here even though it has no alerts in this app yet.
+
 ## Add a new event kind
 1. In the bot, call `app_events.emit(bot, "<new_kind>", "<action|warn|good|info>", title, body, data)`.
    Use the shared `app_events.py` (master in growth-lab, copied byte-identical; check md5 after copying).

@@ -16,7 +16,7 @@ export function destroyCharts() {
 }
 
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-const BOT_VAR = { Chess: "--chess", BuriedCasefiles: "--bcf", "Escape Cup": "--escape", "Bot HQ": "--system" };
+const BOT_VAR = { Chess: "--chess", BuriedCasefiles: "--bcf", "Escape Cup": "--escape", "Space Edits": "--space", "Eagle Eyes": "--eagle", "Bot HQ": "--system" };
 const OTHER = ["--escape", "--system", "--bcf", "--chess", "--warn", "--good"];
 
 function colour(name, i) {
@@ -28,8 +28,24 @@ function colour(name, i) {
 const short = s => (String(s).length > 16 ? `${String(s).slice(0, 15)}…` : String(s));
 const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// data: {labels, series:[{name, data, n}], unit}; kind: line|bar|scatter; note(n) -> tooltip suffix
-export function drawChart(canvas, data, kind, { mini = false, note = () => "" } = {}) {
+// A dashed line down the chart at one label, e.g. when a change went live.
+const markLine = (index, colour) => ({
+  id: "mark",
+  afterDatasetsDraw({ ctx, scales: { x }, chartArea: { top, bottom } }) {
+    const at = x.getPixelForValue(index);
+    ctx.save();
+    ctx.strokeStyle = colour;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(at, top);
+    ctx.lineTo(at, bottom);
+    ctx.stroke();
+    ctx.restore();
+  },
+});
+
+// data: {labels, series:[{name, data, n}], unit}; kind: line|bar|scatter; note(n) -> tooltip suffix; mark: label index for a dashed line
+export function drawChart(canvas, data, kind, { mini = false, note = () => "", mark = -1 } = {}) {
   const ink = css("--muted"), line = css("--line");
   const datasets = data.series.map((s, i) => {
     const c = colour(s.name, i);
@@ -46,6 +62,7 @@ export function drawChart(canvas, data, kind, { mini = false, note = () => "" } 
   const chart = new Chart(canvas, {
     type: kind === "bar" ? "bar" : "line",
     data: { labels: data.labels, datasets },
+    plugins: mark >= 0 ? [markLine(mark, ink)] : [],
     options: {
       responsive: true, maintainAspectRatio: false, animation: mini || reduced() ? false : { duration: 250 },
       interaction: { mode: "nearest", intersect: false },

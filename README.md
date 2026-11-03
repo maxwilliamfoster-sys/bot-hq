@@ -19,7 +19,7 @@ npx wrangler dev  # local
 - **Bots → app:** each bot calls `app_events.emit(...)`, which POSTs to `/api/event` with the bearer `APP_EVENTS_TOKEN`. If the app can't be reached the alert falls back to Telegram, so nothing is lost. Videos still go to Telegram.
 - **Watchers (cron every 5 min):** GitHub Actions runs (failed runs get the log tail in the fix prompt), YouTube stats, Buffer stats (hourly), posting gaps, upload-gate logs, "doing well" milestones, snapshot thinning (03:00 UTC) and the 07:30 UK summary.
 - **Backfill:** `ingest/backfill.py` (GitHub Action, nightly 03:15 UTC) reads the history the bots commit and sends it to `/api/ingest`.
-- **App:** `src/ui/` (vanilla JS + Chart.js, bundled by esbuild into `public/app.js`). Tabs: Inbox, Live, Graphs, Bots, Settings.
+- **App:** `src/ui/` (vanilla JS + Chart.js, bundled by esbuild into `public/app.js`). Tabs: Inbox, Live, Graphs, Radar, Bots (Progress and Runs), Settings.
 
 | Folder | What's in it |
 |---|---|

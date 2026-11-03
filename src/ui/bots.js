@@ -1,6 +1,7 @@
-// Bots tab: each bot's workflows (last 5 runs as dots, tap opens the newest run),
-// AI reviews used today against the bot's cap, and the A/B tests that are running.
+// Bots tab. Progress: is each account improving (progress.js). Runs: each bot's workflows (last 5 runs
+// as dots, tap opens the newest run), AI reviews used today against the bot's cap, and the bots' own A/B flags.
 import { api, el, ago, liveView, BOT_NAMES } from "./lib.js";
+import { progressView } from "./progress.js";
 
 const DOT = { success: "ok", failure: "bad", timed_out: "bad", startup_failure: "bad" };
 const WORD = { success: "worked", failure: "failed", timed_out: "timed out", startup_failure: "didn't start", cancelled: "was cancelled" };
@@ -33,23 +34,33 @@ function experiment(x) {
       x.verdict ? el("div", { class: "muted" }, `Latest verdict: ${x.verdict}`) : null)));
 }
 
-export async function botsTab() {
+const switcher = runs => el("nav", { class: "section-sm", "aria-label": "Bots view" }, el("div", { class: "seg" },
+  el("a", { class: "seg-link", href: "#/bots", "aria-pressed": runs ? "false" : "true" }, "Progress"),
+  el("a", { class: "seg-link", href: "#/bots/runs", "aria-pressed": runs ? "true" : "false" }, "Runs")));
+
+async function runsView() {
+  const data = await api("/api/bots");
+  return [
+    ...data.bots.map(b => el("section", { class: "panel section", dataset: { bot: b.bot } },
+      el("div", { class: "panel-head" }, el("h2", {}, BOT_NAMES[b.bot])),
+      aiMeter(b.ai),
+      b.workflows.length ? b.workflows.map(workflow) : el("p", { class: "muted section" }, "No runs seen yet."))),
+    el("section", { class: "section" },
+      el("div", { class: "section-head" }, el("h2", {}, "Test flags the bots report")),
+      data.experiments.length
+        ? el("ul", { class: "feed" }, data.experiments.map(experiment))
+        : el("p", { class: "muted" }, "No A/B tests running. The morning digest lists them when one starts.")),
+  ];
+}
+
+export async function botsTab({ arg } = {}) {
   const root = el("div", {});
-  const fill = async () => {
-    const data = await api("/api/bots");
-    return [
-      el("h1", {}, "Bots"),
-      ...data.bots.map(b => el("section", { class: "panel section", dataset: { bot: b.bot } },
-        el("div", { class: "panel-head" }, el("h2", {}, BOT_NAMES[b.bot])),
-        aiMeter(b.ai),
-        b.workflows.length ? b.workflows.map(workflow) : el("p", { class: "muted section" }, "No runs seen yet."))),
-      el("section", { class: "section" },
-        el("div", { class: "section-head" }, el("h2", {}, "Tests running")),
-        data.experiments.length
-          ? el("ul", { class: "feed" }, data.experiments.map(experiment))
-          : el("p", { class: "muted" }, "No A/B tests running. The morning digest lists them when one starts.")),
-    ];
-  };
-  return liveView(root, fill).mount();
+  const runs = arg === "runs";
+  const fill = async () => [
+    el("h1", {}, "Bots"),
+    switcher(runs),
+    el("div", { class: "section-sm" }, await (runs ? runsView() : progressView(arg))),
+  ];
+  return liveView(root, fill, { every: runs ? 60000 : 600000 }).mount();
 }
 

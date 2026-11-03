@@ -10,6 +10,7 @@ import { liveData, botsData } from "./views.js";
 import { runGraph, validSaved, PRESETS } from "./query.js";
 import { inboxData, eventDetail, markEvent } from "./inbox.js";
 import { radarData } from "./radar.js";
+import { validTracker, saveTracker, trackerData } from "./tracker.js";
 
 const MAX_BODY = 512 * 1024;
 
@@ -109,6 +110,13 @@ export const routes = [
   }],
 
   ["GET", "/api/radar", "session", async ({ env }) => json(await radarData(env.RADAR_FETCH || fetch))],
+
+  ["GET", "/api/tracker", "session", async ({ env }) => json(await trackerData(env.DB))],
+  ["POST", "/api/tracker", "bot", async ({ env, body }) => {
+    if (!validTracker(body)) return json({ error: "bad_tracker" }, 400);
+    await saveTracker(env.DB, body);
+    return json({ ok: true });
+  }],
 
   ["POST", "/api/ingest", "bot", async ({ env, body }) => json(await ingest(env.DB, body))],
 
