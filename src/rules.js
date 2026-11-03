@@ -1,4 +1,6 @@
 // Time rules (UK local time) and which events get pushed.
+import { BOTS } from "./bots.js";
+
 const UK = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/London",
   year: "numeric", month: "2-digit", day: "2-digit",
@@ -58,6 +60,40 @@ export function doingWell(views, history, minN = 20) {
   return views >= sorted[Math.ceil(0.9 * sorted.length) - 1];
 }
 
+const STUCK_H = 2;
+const median = xs => {
+  const s = [...xs].sort((a, b) => a - b);
+  const mid = s.length >> 1;
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+};
+
+// Posts still waiting to go out well after their time: the scheduler has quietly stalled.
+export function stuckPosts(queued, now = new Date()) {
+  return queued.filter(q => q.due && now.getTime() - Date.parse(q.due) > STUCK_H * 3600e3);
+}
+
+// counts: {bot: posts yesterday}, only for bots the app can see posting.
+export function lowPosting(counts) {
+  return Object.entries(counts).filter(([bot, n]) => n <= Math.floor(BOTS[bot].planned / 2)).map(([bot, n]) => ({ bot, n }));
+}
+
+// rows: one bot's {posted_at, views} at 72h, newest first. Typical views of the last 5 against the
+// 14 days before them. Needs 10 older videos; half or less counts, as TikTok views jump in batches.
+const FALL_RECENT = 5;
+const FALL_BASE_MIN = 10;
+const FALL_BASE_D = 14;
+const FALL_RATIO = 0.5;
+export function viewsFall(rows) {
+  const recent = rows.slice(0, FALL_RECENT);
+  if (recent.length < FALL_RECENT) return null;
+  const from = Date.parse(recent[FALL_RECENT - 1].posted_at) - FALL_BASE_D * 86400e3;
+  const base = rows.slice(FALL_RECENT).filter(r => Date.parse(r.posted_at) >= from);
+  if (base.length < FALL_BASE_MIN) return null;
+  const r = median(recent.map(x => x.views));
+  const before = median(base.map(x => x.views));
+  return r <= before * FALL_RATIO ? { recent: r, before } : null;
+}
+
 // Posting gaps, worded like chess-puzzle-automation needs_you.check_posting.
 // lastPostAt: {chess, bcf} ISO or null; escapePending: scheduled Buffer posts, or null if unknown.
 // ctx says whether the app can actually see each bot's posts; without that, "no recent post" may just
@@ -67,6 +103,8 @@ export function doingWell(views, history, minN = 20) {
 //   bcfNextDue   due time of the next BuriedCasefiles post already queued in Buffer
 const BCF_FEED_FRESH_H = 3;
 const BCF_QUEUE_COVERS_H = 24;
+const SPACE_GAP_H = 18;
+const EAGLE_GAP_H = 20;                  // its slots leave a 17h gap overnight (19:30 to 12:45)
 export function postingGaps(lastPostAt, escapePending, now = new Date(), ctx = {}) {
   const out = [];
   const hoursSince = iso => (now.getTime() - Date.parse(iso)) / 3600e3;
@@ -84,6 +122,16 @@ export function postingGaps(lastPostAt, escapePending, now = new Date(), ctx = {
     if (h > 30) gap("bcf", `BuriedCasefiles: no TikTok post for ${Math.round(h)}h`,
       "Normally 3 a day. Check the BuriedCasefiles video runs and the inbox for blocked videos.");
   }
+  const queueGap = (bot, name, tool, feedAt, nextDue, limitH) => {
+    if (!lastPostAt[bot] || !feedAt || hoursSince(feedAt) >= BCF_FEED_FRESH_H) return;   // can't see it: unknown, not a gap
+    const until = nextDue ? -hoursSince(nextDue) : null;
+    if (until !== null && until > 0 && until < BCF_QUEUE_COVERS_H) return;
+    const h = hoursSince(lastPostAt[bot]);
+    if (h > limitH) gap(bot, `${name}: no TikTok post for ${Math.round(h)}h`,
+      `Normally 3 a day, and nothing is queued in ${tool}. Check the ${name} runs and the ${tool} connection.`);
+  };
+  queueGap("space", "Space Edits", "Buffer", ctx.bcfFeedAt, ctx.spaceNextDue, SPACE_GAP_H);
+  queueGap("eagle", "Eagle Eyes", "Zernio", ctx.eagleFeedAt, ctx.eagleNextDue, EAGLE_GAP_H);
   if (escapePending === 0) gap("escape", "Escape Cup: nothing is scheduled in Buffer",
     "Check the Escape Cup scheduling runs (Buffer key, or every render failing the gates).");
   return out;

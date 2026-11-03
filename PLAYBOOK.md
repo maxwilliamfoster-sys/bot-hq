@@ -62,6 +62,21 @@ npx wrangler secret put APP_EVENTS_TOKEN < .secrets.local
 
 Each screen shows "Updated …" or "Views from N ago", so you can see how fresh it is.
 
+## Missed-post checks
+Bot HQ checks these itself, so a bot that never runs still gets noticed:
+- **Posting gaps (hourly):** Chess 14h, BuriedCasefiles 30h, Space Edits 18h, Eagle Eyes 20h. A post queued within 24h silences the alarm for the last three.
+- **Stuck posts (hourly):** a post over 2 hours past its time in Buffer or Zernio.
+- **Failed posts (hourly):** Eagle Eyes posts Zernio marks failed, alerted once each.
+- **Quiet days (07:30):** a bot that posted half its plan or less yesterday, if it posted in the past week.
+- **Views falling (07:00 UTC):** typical views of the last 5 videos at 3 days old, at half or less of the 14 days before. At most once a week per bot.
+- **Bot HQ itself:** each tick pings `HEALTHCHECK_URL` after the database answers. healthchecks.io alerts you when the pings stop.
+
+Two optional secrets switch parts of this on. Without them those checks skip quietly:
+- `ZERNIO_API_KEY`: Eagle Eyes' posts, queue, failures and views.
+- `HEALTHCHECK_URL`: the ping URL of a healthchecks.io check. Set its period to 5 minutes and its grace time to 30 minutes.
+
+`GH_READ_TOKEN` must be able to read `level-up-quiz` (a private repo) for Eagle Eyes' runs to show. If Bots > Runs says "No runs seen yet" for it, the token needs that repo added.
+
 ## When something looks wrong
 - **No pushes at all:** Settings shows "Not connected"? Reconnect. Still nothing: `npx wrangler tail` and fire a test.
 - **Graphs empty:** check the "Nightly backfill" Action ran (`gh run list -w "Nightly backfill"`). Views at 1h/6h/24h/72h fill about 4 hours after each age.

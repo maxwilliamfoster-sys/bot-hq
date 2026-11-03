@@ -2,10 +2,11 @@
 // single grouped "Bot HQ watcher error" warn and the rest still run.
 import { BOTS, BOT_IDS } from "./bots.js";
 import { processEvent, openActionCount } from "./events.js";
-import { ukParts, valueAtAge, doingWell, postingGaps } from "./rules.js";
+import { ukParts, valueAtAge, doingWell, postingGaps, stuckPosts, lowPosting, viewsFall } from "./rules.js";
 import { getState, setState } from "./settings.js";
 import { checkRuns } from "./watch/runs.js";
 import { pollStats } from "./watch/stats.js";
+import { pollZernio, pollZernioViews } from "./watch/zernio.js";
 import { thinPlan } from "./thin.js";
 import { refreshGate } from "./watch/gate.js";
 import { weeklyRadarCheck } from "./radar.js";
@@ -106,7 +107,7 @@ async function checkDoingWell(env, db, now, sweep) {
 async function announceNewPosts(env, newPosts, now) {
   for (const p of newPosts) {
     // Escape Cup's own "scheduled" message isn't the publish; Buffer's sentAt is. Others announce themselves.
-    if (p.bot !== "escape" && p.bot !== "space") continue;
+    if (p.bot !== "escape" && p.bot !== "space" && p.bot !== "eagle") continue;
     if (now.getTime() - Date.parse(p.posted_at) > NEW_POST_WINDOW_H * H) continue;   // first sync: history, not news
     await processEvent(env, {
       bot: p.bot, kind: "posted", severity: "info", title: `${BOTS[p.bot].name} posted: ${p.title}`.slice(0, 160),
@@ -116,9 +117,66 @@ async function announceNewPosts(env, newPosts, now) {
   }
 }
 
+async function alertStuck(env, queued, now) {
+  const stuck = stuckPosts(queued, now);
+  for (const bot of new Set(stuck.map(s => s.bot))) {
+    const n = stuck.filter(s => s.bot === bot).length;
+    await processEvent(env, {
+      bot, kind: "post_stuck", severity: "action",
+      title: `${BOTS[bot].name}: ${n} post${n === 1 ? "" : "s"} stuck past ${n === 1 ? "its" : "their"} time`,
+      body: "Still waiting to go out over 2 hours late. Check the scheduler's connection to TikTok.",
+      data: {}, dedupe_key: `stuck:${bot}`,
+    }, now);
+  }
+}
+
+// Each failed post alerts once; the poll sees it again every hour until it is 2 days old.
+async function alertFailed(env, db, failed, now) {
+  for (const p of failed) {
+    const key = `post_failed:eagle:${p.id}`;
+    if (await db.prepare("SELECT 1 AS x FROM events WHERE dedupe_key = ?").bind(key).first("x")) continue;
+    await processEvent(env, {
+      bot: "eagle", kind: "post_failed", severity: "action", title: "Eagle Eyes: a post failed to publish",
+      body: `${p.error || "Zernio gave no reason."}\n${p.text.split("\n")[0]}`.slice(0, 500),
+      data: {}, dedupe_key: key,
+    }, now);
+  }
+}
+
+// Once a day, and at most once a week per bot while it stays down.
+async function checkViewsFall(env, db, now) {
+  const { results } = await db.prepare(
+    `SELECT p.bot, p.posted_at, m.views FROM milestones m JOIN posts p ON p.id = m.post_id
+     WHERE m.h = 72 AND m.views IS NOT NULL AND p.posted_at > ? ORDER BY p.posted_at DESC`)
+    .bind(new Date(now.getTime() - 30 * 24 * H).toISOString()).all();
+  for (const bot of BOT_IDS) {
+    const fall = viewsFall(results.filter(r => r.bot === bot));
+    if (!fall) continue;
+    const key = `views_fall:${bot}`;
+    const week = new Date(now.getTime() - 7 * 24 * H).toISOString();
+    if (await db.prepare("SELECT 1 AS x FROM events WHERE dedupe_key = ? AND at > ?").bind(key, week).first("x")) continue;
+    const recent = Math.round(fall.recent).toLocaleString("en-GB");
+    const before = Math.round(fall.before).toLocaleString("en-GB");
+    await processEvent(env, {
+      bot, kind: "views_fall", severity: "warn", title: `${BOTS[bot].name}: typical views fell to ${recent} from ${before}`,
+      body: "Last 5 videos at 3 days old, against the 14 days before. Check what changed: posting rate first, then the video format, then For You flags in TikTok Studio.",
+      data: { recent: fall.recent, before: fall.before }, dedupe_key: key,
+    }, now);
+  }
+}
+
+// healthchecks.io raises the alarm when these stop. A failed ping is not an error here: the silence is the signal.
+async function pingAlarm(env, db, fetchFn) {
+  if (!env.HEALTHCHECK_URL) return;
+  try {
+    await db.prepare("SELECT 1 AS alive").first("alive");
+    await fetchFn(env.HEALTHCHECK_URL);
+  } catch (e) { console.error("dead-man ping", e?.message || e); }
+}
+
 async function checkGaps(env, db, now) {
   const last = {};
-  for (const bot of ["chess", "bcf"]) {
+  for (const bot of ["chess", "bcf", "space", "eagle"]) {
     last[bot] = await db.prepare("SELECT MAX(posted_at) AS t FROM posts WHERE bot = ?").bind(bot).first("t");
   }
   const at = await getState(db, "escape_pending_at");
@@ -127,7 +185,10 @@ async function checkGaps(env, db, now) {
   const chessLinked = !!(await db.prepare("SELECT 1 AS x FROM events WHERE bot = 'chess' AND at > ? LIMIT 1")
     .bind(new Date(now.getTime() - 7 * 24 * H).toISOString()).first("x"));
   const ctx = { chessLinked, bcfFeedAt: (await getState(db, "bcf_polled_at")) || null,
-    bcfNextDue: (await getState(db, "bcf_next_due")) || null };
+    bcfNextDue: (await getState(db, "bcf_next_due")) || null,
+    spaceNextDue: (await getState(db, "space_next_due")) || null,
+    eagleFeedAt: (await getState(db, "eagle_polled_at")) || null,
+    eagleNextDue: (await getState(db, "eagle_next_due")) || null };
   for (const ev of postingGaps(last, pending, now, ctx)) await processEvent(env, ev, now);
 }
 
@@ -162,6 +223,16 @@ async function sendSummary(env, db, now) {
   if (best) lines.push(`Best: ${best.title || best.id} (${BOTS[best.bot].name}), ${best.views.toLocaleString("en-GB")} views`);
   const open = await openActionCount(db);
   lines.push(open ? `${open} thing${open === 1 ? "" : "s"} need${open === 1 ? "s" : ""} you.` : "Nothing needs you.");
+  // Only bots seen posting this past week: one that isn't connected yet isn't a quiet day.
+  const { results: active } = await db.prepare("SELECT DISTINCT bot FROM posts WHERE posted_at > ?")
+    .bind(new Date(now.getTime() - 7 * 24 * H).toISOString()).all();
+  const counts = Object.fromEntries(active.filter(r => BOT_IDS.includes(r.bot)).map(r => [r.bot, posts.filter(p => p.bot === r.bot).length]));
+  for (const { bot, n } of lowPosting(counts)) {
+    await processEvent(env, {
+      bot, kind: "low_posts", severity: "warn", title: `${BOTS[bot].name}: only ${n} of ${BOTS[bot].planned} posts yesterday`,
+      body: "Check its runs, and the inbox for blocked videos.", data: { day: yesterday }, dedupe_key: `low_posts:${bot}:${yesterday}`,
+    }, now);
+  }
   await processEvent(env, {
     bot: "system", kind: "summary", severity: "info",
     title: `Yesterday: ${posts.length} of ${planned} posts`, body: lines.join("\n"),
@@ -179,6 +250,13 @@ export async function runSchedule(event, env, ctx, fetchFn = fetch, now = new Da
   if (hourly) {
     const r = await step(env, now, "TikTok stats", () => pollStats(env, db, fetchFn, now, { youtube: false, buffer: true }));
     if (r?.newPosts?.length) await step(env, now, "new posts", () => announceNewPosts(env, r.newPosts, now));
+    const z = await step(env, now, "Eagle Eyes posts", () => pollZernio(env, db, fetchFn, now));
+    if (z) {
+      await step(env, now, "new posts", () => announceNewPosts(env, z.newPosts, now));
+      await step(env, now, "failed posts", () => alertFailed(env, db, z.failed, now));
+    }
+    await step(env, now, "Eagle Eyes stats", () => pollZernioViews(env, db, fetchFn, now));
+    await step(env, now, "stuck posts", () => alertStuck(env, [...(r?.queued || []), ...(z?.queued || [])], now));
     await step(env, now, "posting gaps", () => checkGaps(env, db, now));
     await step(env, now, "gate logs", () => refreshGate(env, db, fetchFn, now));
     const ukH = ukParts(now).hhmm;
@@ -186,6 +264,7 @@ export async function runSchedule(event, env, ctx, fetchFn = fetch, now = new Da
   }
   await step(env, now, "doing well", () => checkDoingWell(env, db, now, hourly));
   if (now.getUTCHours() === 3 && hourly) await step(env, now, "thinning", () => thinSnapshots(db, now));
+  if (now.getUTCHours() === 6 && hourly) await step(env, now, "views falling", () => checkViewsFall(env, db, now));
 
   // A whole hour, not one tick, so a late or failed 07:30 run still gets its summary out.
   const uk = ukParts(now);
@@ -196,4 +275,5 @@ export async function runSchedule(event, env, ctx, fetchFn = fetch, now = new Da
       await sendSummary(env, db, now);
     });
   }
+  await pingAlarm(env, db, fetchFn);
 }

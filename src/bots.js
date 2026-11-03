@@ -6,10 +6,11 @@ export const BOTS = {
   bcf: { name: "BuriedCasefiles", repo: "youtube-automation", note: "buriedcasefiles_automation", planned: 3 },
   escape: { name: "Escape Cup", repo: "escape-cup", note: "escape_cup_tiktok", planned: 3 },
   space: { name: "Space Edits", repo: "space-edits", note: "space_edits", planned: 3 },
+  eagle: { name: "Eagle Eyes", repo: "level-up-quiz", note: "level_up_quiz", planned: 3 },
   system: { name: "Bot HQ", repo: "bot-hq", note: "bot_hq", planned: 0 },
 };
 
-export const BOT_IDS = ["chess", "bcf", "escape", "space"];
+export const BOT_IDS = ["chess", "bcf", "escape", "space", "eagle"];
 
 export function localRepoPath(bot) {
   return bot === "system"

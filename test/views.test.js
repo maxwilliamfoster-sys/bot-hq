@@ -78,7 +78,7 @@ test("GET /api/live: today's counts, views, 1-hour change and sparkline", async 
   const esc = live.bots.find(b => b.bot === "escape");
   assert.equal(esc.next_slot, "2026-10-20T15:30:00.000Z");
   assert.deepEqual(esc.today, { posted: 1, planned: 3 });
-  assert.deepEqual(live.bots.map(b => b.bot), ["chess", "bcf", "escape", "space"]);
+  assert.deepEqual(live.bots.map(b => b.bot), ["chess", "bcf", "escape", "space", "eagle"]);
 });
 
 test("GET /api/bots: workflows with last 5 runs, experiments from the digest, AI use vs cap", async () => {

@@ -42,14 +42,14 @@ export function parseBufferPosts(json) {
 
 const postId = (bot, ext) => `${bot}:${ext}`;
 
-async function insertPost(db, p) {
+export async function insertPost(db, p) {
   const r = await db.prepare(
     "INSERT OR IGNORE INTO posts (id, bot, platform, external_id, title, posted_at, url) VALUES (?, ?, ?, ?, ?, ?, ?)")
     .bind(postId(p.bot, p.external_id), p.bot, p.platform, p.external_id, p.title, p.posted_at, p.url ?? null).run();
   return r.meta.changes > 0;
 }
 
-const snapshotStmt = (db, post_id, at, s) => db.prepare(
+export const snapshotStmt = (db, post_id, at, s) => db.prepare(
   "INSERT OR IGNORE INTO snapshots (post_id, at, views, likes, comments, shares, avg_watch_s, reach) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
   .bind(post_id, at, s.views, s.likes, s.comments, s.shares ?? null, s.avg_watch_s ?? null, s.reach ?? null);
 
@@ -133,7 +133,8 @@ async function pollBuffer(env, db, fetchFn, now) {
     await setState(db, "space_next_due", nextSpace ? new Date(nextSpace).toISOString() : "");
   }
   await setState(db, "bcf_polled_at", at);
-  return { n, newPosts, pending };
+  const queued = scheduled.filter(s => channels[s.channel]).map(s => ({ bot: channels[s.channel], due: s.due }));
+  return { n, newPosts, pending, queued };
 }
 
 export async function pollStats(env, db, fetchFn = fetch, now = new Date(), { youtube = true, buffer = false } = {}) {
@@ -145,6 +146,7 @@ export async function pollStats(env, db, fetchFn = fetch, now = new Date(), { yo
     out.snapshots += b.n;
     out.newPosts = b.newPosts;
     out.pending = b.pending;
+    out.queued = b.queued;
   }
   return out;
 }

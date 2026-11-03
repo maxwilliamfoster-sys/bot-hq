@@ -43,7 +43,7 @@ async function runsView() {
   return [
     ...data.bots.map(b => el("section", { class: "panel section", dataset: { bot: b.bot } },
       el("div", { class: "panel-head" }, el("h2", {}, BOT_NAMES[b.bot])),
-      aiMeter(b.ai),
+      b.ai.cap ? aiMeter(b.ai) : null,
       b.workflows.length ? b.workflows.map(workflow) : el("p", { class: "muted section" }, "No runs seen yet."))),
     el("section", { class: "section" },
       el("div", { class: "section-head" }, el("h2", {}, "Test flags the bots report")),
