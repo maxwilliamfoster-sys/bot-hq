@@ -135,10 +135,12 @@ async function alertFailed(env, db, failed, now) {
   for (const p of failed) {
     const key = `post_failed:eagle:${p.id}`;
     if (await db.prepare("SELECT 1 AS x FROM events WHERE dedupe_key = ?").bind(key).first("x")) continue;
+    // Outside text: one line for reading here, and fenced as untrusted in the fix prompt.
+    const reason = (p.error || "Zernio gave no reason.").replace(/[\x00-\x1f\x7f]+/g, " ").trim().slice(0, 300);
     await processEvent(env, {
       bot: "eagle", kind: "post_failed", severity: "action", title: "Eagle Eyes: a post failed to publish",
-      body: `${p.error || "Zernio gave no reason."}\n${p.text.split("\n")[0]}`.slice(0, 500),
-      data: {}, dedupe_key: key,
+      body: `${reason}\n${p.text.split("\n")[0]}`.slice(0, 500),
+      data: { external_detail: reason }, dedupe_key: key,
     }, now);
   }
 }
