@@ -27,7 +27,7 @@ function ukTime(day, hhmm) {
   return guess;
 }
 
-export function nextSlot(bot, now = new Date(), escapeNextDue = null, spaceNextDue = null, eagleNextDue = null) {
+export function nextSlot(bot, now = new Date(), escapeNextDue = null, spaceNextDue = null, eagleNextDue = null, percNextDue = null) {
   const after = t => t.getTime() > now.getTime();
   if (bot === "chess") {
     for (let d = 0; d < 2; d++) {
@@ -48,6 +48,7 @@ export function nextSlot(bot, now = new Date(), escapeNextDue = null, spaceNextD
   if (bot === "escape" && escapeNextDue && after(new Date(escapeNextDue))) return new Date(escapeNextDue).toISOString();
   if (bot === "space" && spaceNextDue && after(new Date(spaceNextDue))) return new Date(spaceNextDue).toISOString();
   if (bot === "eagle" && eagleNextDue && after(new Date(eagleNextDue))) return new Date(eagleNextDue).toISOString();
+  if (bot === "perc" && percNextDue && after(new Date(percNextDue))) return new Date(percNextDue).toISOString();
   return null;
 }
 
@@ -78,6 +79,7 @@ export async function liveData(db, now = new Date()) {
   const escapeDue = (await getState(db, "escape_next_due")) || null;
   const spaceDue = (await getState(db, "space_next_due")) || null;
   const eagleDue = (await getState(db, "eagle_next_due")) || null;
+  const percDue = (await getState(db, "perc_next_due")) || null;
   const bodgeBeat = await heartbeat(db, "bodge");
   const bodgeDue = bodgeBeat?.next_publish && Date.parse(bodgeBeat.next_publish) > now.getTime() ? bodgeBeat.next_publish : null;
   const today = ukParts(now).ymd;
@@ -91,7 +93,7 @@ export async function liveData(db, now = new Date()) {
       return {
         bot,
         today: { posted: mine.filter(p => ukParts(new Date(p.posted_at)).ymd === today).length, planned: BOTS[bot].planned },
-        next_slot: bot === "bodge" ? bodgeDue : nextSlot(bot, now, escapeDue, spaceDue, eagleDue),
+        next_slot: bot === "bodge" ? bodgeDue : nextSlot(bot, now, escapeDue, spaceDue, eagleDue, percDue),
         last_run: run ? { conclusion: run.conclusion, url: run.url, at: run.at, workflow: run.workflow } : null,
         stats_at: lastSnaps.map(s => s.at).sort().at(-1) || null,
         posts: mine.map(p => {

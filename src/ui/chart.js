@@ -16,7 +16,7 @@ export function destroyCharts() {
 }
 
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-const BOT_VAR = { Chess: "--chess", BuriedCasefiles: "--bcf", "Escape Cup": "--escape", "Space Edits": "--space", "Eagle Eyes": "--eagle", "Bot HQ": "--system" };
+const BOT_VAR = { Chess: "--chess", BuriedCasefiles: "--bcf", "Escape Cup": "--escape", "Space Edits": "--space", "Eagle Eyes": "--eagle", "Perc Cruncher": "--perc", "Bot HQ": "--system" };
 const OTHER = ["--escape", "--system", "--bcf", "--chess", "--warn", "--good"];
 
 function colour(name, i) {

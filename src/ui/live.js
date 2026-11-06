@@ -46,7 +46,7 @@ function post(p) {
 }
 
 function card(b) {
-  const next = b.next_slot ? ukClock(b.next_slot) : (b.bot === "escape" || b.bot === "eagle" ? "Nothing booked" : "–");
+  const next = b.next_slot ? ukClock(b.next_slot) : (["escape", "eagle", "perc"].includes(b.bot) ? "Nothing booked" : "–");
   return el("section", { class: "panel", dataset: { bot: b.bot } },
     el("div", { class: "panel-head" },
       el("h2", {}, BOT_NAMES[b.bot]),

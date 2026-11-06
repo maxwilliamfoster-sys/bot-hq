@@ -43,7 +43,7 @@ test("Eagle Eyes alerts when nothing has posted for 20h and nothing is queued", 
 
 test("parseZernioPosts reads status, due time, link and error", () => {
   const [p] = parseZernioPosts({ posts: [post("a", "failed", ago(3), { platforms: [{ platform: "tiktok", platformPostUrl: "https://t/1", errorMessage: "rejected" }] })] });
-  assert.deepEqual(p, { id: "a", status: "failed", due: ago(3), text: "Quiz a\n#tag", url: "https://t/1", error: "rejected" });
+  assert.deepEqual(p, { id: "a", bot: "eagle", status: "failed", due: ago(3), text: "Quiz a\n#tag", url: "https://t/1", error: "rejected" });
 });
 
 test("stuckPosts finds only posts over 2h past their time", () => {

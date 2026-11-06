@@ -26,6 +26,7 @@
   --escape: #12A39A;
   --space: #B5478F;
   --eagle: #8A6A2F;
+  --perc: #C2410C;
   --system: #7A6AD8;
   --focus: #2F5BEA;
 
@@ -60,6 +61,7 @@
     --escape: #3FD0C6;
     --space: #F08CC8;
     --eagle: #D8B878;
+    --perc: #FB8A5C;
     --system: #A99BFF;
     --focus: #6F8FFF;
   }
@@ -109,6 +111,7 @@ a { color: inherit; }
 [data-bot="escape"] { --bot: var(--escape); }
 [data-bot="space"] { --bot: var(--space); }
 [data-bot="eagle"] { --bot: var(--eagle); }
+[data-bot="perc"] { --bot: var(--perc); }
 [data-bot="system"] { --bot: var(--system); }
 .bot-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
 .bot-tag::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--bot, var(--muted)); }

@@ -27,7 +27,7 @@ function feedRow(e) {
       el("span", { class: "title" }, e.title),
       el("span", { class: "when" }, `${botName(e)}${times(e.count)}${ago(e.last_at)}${e.resolved ? ". Done" : ""}`))));
 }
-const botName = e => ({ chess: "Chess, ", bcf: "BuriedCasefiles, ", escape: "Escape Cup, ", space: "Space Edits, ", eagle: "Eagle Eyes, ", system: "Bot HQ, " }[e.bot] || "");
+const botName = e => ({ chess: "Chess, ", bcf: "BuriedCasefiles, ", escape: "Escape Cup, ", space: "Space Edits, ", eagle: "Eagle Eyes, ", perc: "Perc Cruncher, ", bodge: "Bodge Delivers, ", system: "Bot HQ, " }[e.bot] || "");
 
 export async function inboxTab({ arg, setTabCount }) {
   const filter = CHIPS.some(([k]) => k === arg) ? arg : "all";

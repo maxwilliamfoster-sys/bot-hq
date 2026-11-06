@@ -107,7 +107,7 @@ async function checkDoingWell(env, db, now, sweep) {
 async function announceNewPosts(env, newPosts, now) {
   for (const p of newPosts) {
     // Escape Cup's own "scheduled" message isn't the publish; Buffer's sentAt is. Others announce themselves.
-    if (p.bot !== "escape" && p.bot !== "space" && p.bot !== "eagle") continue;
+    if (!["escape", "space", "eagle", "perc"].includes(p.bot)) continue;
     if (now.getTime() - Date.parse(p.posted_at) > NEW_POST_WINDOW_H * H) continue;   // first sync: history, not news
     await processEvent(env, {
       bot: p.bot, kind: "posted", severity: "info", title: `${BOTS[p.bot].name} posted: ${p.title}`.slice(0, 160),
@@ -133,12 +133,13 @@ async function alertStuck(env, queued, now) {
 // Each failed post alerts once; the poll sees it again every hour until it is 2 days old.
 async function alertFailed(env, db, failed, now) {
   for (const p of failed) {
-    const key = `post_failed:eagle:${p.id}`;
+    const bot = p.bot || "eagle";
+    const key = `post_failed:${bot}:${p.id}`;
     if (await db.prepare("SELECT 1 AS x FROM events WHERE dedupe_key = ?").bind(key).first("x")) continue;
     // Outside text: one line for reading here, and fenced as untrusted in the fix prompt.
     const reason = (p.error || "").replace(/[\x00-\x1f\x7f]+/g, " ").trim().slice(0, 300) || "Zernio gave no reason.";
     await processEvent(env, {
-      bot: "eagle", kind: "post_failed", severity: "action", title: "Eagle Eyes: a post failed to publish",
+      bot, kind: "post_failed", severity: "action", title: `${BOTS[bot].name}: a post failed to publish`,
       body: `${reason}\n${p.text.split("\n")[0]}`.slice(0, 500),
       data: { external_detail: reason }, dedupe_key: key,
     }, now);
@@ -178,7 +179,7 @@ async function pingAlarm(env, db, fetchFn) {
 
 async function checkGaps(env, db, now) {
   const last = {};
-  for (const bot of ["chess", "bcf", "space", "eagle"]) {
+  for (const bot of ["chess", "bcf", "space", "eagle", "perc"]) {
     last[bot] = await db.prepare("SELECT MAX(posted_at) AS t FROM posts WHERE bot = ?").bind(bot).first("t");
   }
   const at = await getState(db, "escape_pending_at");
@@ -190,7 +191,9 @@ async function checkGaps(env, db, now) {
     bcfNextDue: (await getState(db, "bcf_next_due")) || null,
     spaceNextDue: (await getState(db, "space_next_due")) || null,
     eagleFeedAt: (await getState(db, "eagle_polled_at")) || null,
-    eagleNextDue: (await getState(db, "eagle_next_due")) || null };
+    eagleNextDue: (await getState(db, "eagle_next_due")) || null,
+    percFeedAt: (await getState(db, "perc_polled_at")) || null,
+    percNextDue: (await getState(db, "perc_next_due")) || null };
   for (const ev of postingGaps(last, pending, now, ctx)) await processEvent(env, ev, now);
 }
 
@@ -260,12 +263,12 @@ export async function runSchedule(event, env, ctx, fetchFn = fetch, now = new Da
   if (hourly) {
     const r = await step(env, now, "TikTok stats", () => pollStats(env, db, fetchFn, now, { youtube: false, buffer: true }));
     if (r?.newPosts?.length) await step(env, now, "new posts", () => announceNewPosts(env, r.newPosts, now));
-    const z = await step(env, now, "Eagle Eyes posts", () => pollZernio(env, db, fetchFn, now));
+    const z = await step(env, now, "Zernio posts", () => pollZernio(env, db, fetchFn, now));
     if (z) {
       await step(env, now, "new posts", () => announceNewPosts(env, z.newPosts, now));
       await step(env, now, "failed posts", () => alertFailed(env, db, z.failed, now));
     }
-    await step(env, now, "Eagle Eyes stats", () => pollZernioViews(env, db, fetchFn, now));
+    await step(env, now, "Zernio stats", () => pollZernioViews(env, db, fetchFn, now));
     await step(env, now, "stuck posts", () => alertStuck(env, [...(r?.queued || []), ...(z?.queued || [])], now));
     await step(env, now, "posting gaps", () => checkGaps(env, db, now));
     await step(env, now, "PC heartbeats", () => checkHeartbeats(env, db, now));

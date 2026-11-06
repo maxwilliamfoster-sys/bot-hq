@@ -4,7 +4,7 @@ import { BOTS, OWNER, botForRepo } from "../bots.js";
 import { processEvent } from "../events.js";
 
 const API = "https://api.github.com";
-const REPOS = ["chess-puzzle-automation", "youtube-automation", "escape-cup", "space-edits", "level-up-quiz", "bot-hq"];
+const REPOS = ["chess-puzzle-automation", "youtube-automation", "escape-cup", "space-edits", "level-up-quiz", "giftok-bot", "bot-hq"];
 const ACTION = new Set(["failure", "timed_out", "startup_failure"]);
 const LOCKED_OUT = new Set([401, 403, 404]);
 const LOG_BYTES = 16000;

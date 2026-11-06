@@ -125,6 +125,7 @@ const BCF_FEED_FRESH_H = 3;
 const BCF_QUEUE_COVERS_H = 24;
 const SPACE_GAP_H = 18;
 const EAGLE_GAP_H = 20;                  // its slots leave a 17h gap overnight (19:30 to 12:45)
+const PERC_GAP_H = 32;                   // 1-2 a day in 16:00-21:45: worst normal gap is 16:00 one day to 21:45 the next
 export function postingGaps(lastPostAt, escapePending, now = new Date(), ctx = {}) {
   const out = [];
   const hoursSince = iso => (now.getTime() - Date.parse(iso)) / 3600e3;
@@ -142,16 +143,17 @@ export function postingGaps(lastPostAt, escapePending, now = new Date(), ctx = {
     if (h > 30) gap("bcf", `BuriedCasefiles: no TikTok post for ${Math.round(h)}h`,
       "Normally 3 a day. Check the BuriedCasefiles video runs and the inbox for blocked videos.");
   }
-  const queueGap = (bot, name, tool, feedAt, nextDue, limitH) => {
+  const queueGap = (bot, name, tool, feedAt, nextDue, limitH, normally = "3 a day") => {
     if (!lastPostAt[bot] || !feedAt || hoursSince(feedAt) >= BCF_FEED_FRESH_H) return;   // can't see it: unknown, not a gap
     const until = nextDue ? -hoursSince(nextDue) : null;
     if (until !== null && until > 0 && until < BCF_QUEUE_COVERS_H) return;
     const h = hoursSince(lastPostAt[bot]);
     if (h > limitH) gap(bot, `${name}: no TikTok post for ${Math.round(h)}h`,
-      `Normally 3 a day, and nothing is queued in ${tool}. Check the ${name} runs and the ${tool} connection.`);
+      `Normally ${normally}, and nothing is queued in ${tool}. Check the ${name} runs and the ${tool} connection.`);
   };
   queueGap("space", "Space Edits", "Buffer", ctx.bcfFeedAt, ctx.spaceNextDue, SPACE_GAP_H);
   queueGap("eagle", "Eagle Eyes", "Zernio", ctx.eagleFeedAt, ctx.eagleNextDue, EAGLE_GAP_H);
+  queueGap("perc", "Perc Cruncher", "Zernio", ctx.percFeedAt, ctx.percNextDue, PERC_GAP_H, "1-2 a day");
   if (escapePending === 0) gap("escape", "Escape Cup: nothing is scheduled in Buffer",
     "Check the Escape Cup scheduling runs (Buffer key, or every render failing the gates).");
   return out;

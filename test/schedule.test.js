@@ -24,7 +24,7 @@ test("07:31 UK sends the summary once; 07:36 does not send it again", async () =
   await runSchedule({}, e, ctx, okFetch, new Date("2026-10-20T06:36:00Z"));
   assert.equal(await count(e, "kind = 'summary'"), 1);
   const s = await e.DB.prepare("SELECT title, body FROM events WHERE kind = 'summary'").first();
-  assert.match(s.title, /2 of 16 posts/);
+  assert.match(s.title, /2 of 18 posts/);   // 3+3+3+3+3 + Perc Cruncher 2 + Bodge 1
   assert.match(s.body, /Chess: 2 of 3/);
 });
 
