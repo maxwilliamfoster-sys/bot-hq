@@ -94,6 +94,26 @@ export function viewsFall(rows) {
   return r <= before * FALL_RATIO ? { recent: r, before } : null;
 }
 
+// A bot that runs on Max's PC checks in after every run. beat: {at, mode, waiting, ...} or null.
+export const HEARTBEAT_LATE_H = 30;     // daily run, plus a missed night's slack
+export function heartbeatAlerts(bot, beat, now = new Date()) {
+  if (!beat || !beat.at) return [];     // never checked in: not connected yet, not broken
+  const name = BOTS[bot].name;
+  const h = (now.getTime() - Date.parse(beat.at)) / 3600e3;
+  const out = [];
+  if (h > HEARTBEAT_LATE_H) {
+    out.push({ bot, kind: "no_heartbeat", severity: "action", title: `${name}: no daily run for ${Math.round(h)}h`,
+      body: "The PC may be off, asleep or signed out, or the scheduled task stopped. Videos already scheduled on YouTube still go out.",
+      data: { last: beat.at }, dedupe_key: `no_heartbeat:${bot}` });
+  }
+  if (beat.mode === "scheduled" && Number.isFinite(beat.waiting) && beat.waiting <= 1) {
+    out.push({ bot, kind: "queue_low", severity: "warn", title: `${name}: only ${beat.waiting} video${beat.waiting === 1 ? "" : "s"} queued`,
+      body: "New episodes aren't being made fast enough. Check the run log and the inbox for failed episodes.",
+      data: { waiting: beat.waiting }, dedupe_key: `queue_low:${bot}:${String(beat.at).slice(0, 10)}` });
+  }
+  return out;
+}
+
 // Posting gaps, worded like chess-puzzle-automation needs_you.check_posting.
 // lastPostAt: {chess, bcf} ISO or null; escapePending: scheduled Buffer posts, or null if unknown.
 // ctx says whether the app can actually see each bot's posts; without that, "no recent post" may just

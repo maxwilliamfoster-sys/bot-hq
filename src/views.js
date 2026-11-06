@@ -5,6 +5,11 @@ import { ukParts } from "./rules.js";
 import { getState } from "./settings.js";
 
 const H = 3600e3;
+
+// The last check-in from a bot that runs on Max's PC, or null.
+export async function heartbeat(db, bot) {
+  try { return JSON.parse((await getState(db, `heartbeat:${bot}`)) || "null"); } catch { return null; }
+}
 const CHESS_SLOTS_UTC = [4, 14, 22];
 const BCF_SLOTS_UK = ["09:15", "12:45", "15:45"];
 const AI_CAPS = { chess: 10, bcf: 20, escape: 8, space: 12 };   // AI_DAILY_CAP in each bot (per UTC day)
@@ -73,6 +78,8 @@ export async function liveData(db, now = new Date()) {
   const escapeDue = (await getState(db, "escape_next_due")) || null;
   const spaceDue = (await getState(db, "space_next_due")) || null;
   const eagleDue = (await getState(db, "eagle_next_due")) || null;
+  const bodgeBeat = await heartbeat(db, "bodge");
+  const bodgeDue = bodgeBeat?.next_publish && Date.parse(bodgeBeat.next_publish) > now.getTime() ? bodgeBeat.next_publish : null;
   const today = ukParts(now).ymd;
   const hourAgo = new Date(now.getTime() - H).toISOString();
   return {
@@ -84,7 +91,7 @@ export async function liveData(db, now = new Date()) {
       return {
         bot,
         today: { posted: mine.filter(p => ukParts(new Date(p.posted_at)).ymd === today).length, planned: BOTS[bot].planned },
-        next_slot: nextSlot(bot, now, escapeDue, spaceDue, eagleDue),
+        next_slot: bot === "bodge" ? bodgeDue : nextSlot(bot, now, escapeDue, spaceDue, eagleDue),
         last_run: run ? { conclusion: run.conclusion, url: run.url, at: run.at, workflow: run.workflow } : null,
         stats_at: lastSnaps.map(s => s.at).sort().at(-1) || null,
         posts: mine.map(p => {
@@ -105,6 +112,7 @@ export async function botsData(db, now = new Date()) {
   const { results: gate } = await db.prepare(
     "SELECT bot, COUNT(*) AS checks, SUM(ai_used) AS used FROM gate WHERE at >= ? GROUP BY bot").bind(dayStart).all();
   const digest = await db.prepare("SELECT data_json FROM events WHERE kind = 'digest' ORDER BY id DESC LIMIT 1").first("data_json");
+  const beats = { bodge: await heartbeat(db, "bodge") };
   let experiments = [];
   try { experiments = JSON.parse(digest || "{}").experiments || []; } catch { /* bad row: show none */ }
   return {
@@ -121,6 +129,7 @@ export async function botsData(db, now = new Date()) {
       return {
         bot,
         workflows: [...byWorkflow].map(([name, list]) => ({ name, runs: list })),
+        heartbeat: beats[bot] || null,
         ai: { used: Number(g?.used || 0), cap: AI_CAPS[bot], checks: Number(g?.checks || 0) },
       };
     }),

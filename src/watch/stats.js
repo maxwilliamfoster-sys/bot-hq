@@ -7,6 +7,7 @@ const YT = "https://www.googleapis.com/youtube/v3/videos";
 const BUFFER = "https://api.buffer.com";
 export const BUFFER_DAILY_CAP = 30;
 const RECENT_DAYS = 7;
+const YOUTUBE_BOTS = ["chess", "bodge"];       // posts arrive as "posted" events; views come from the YouTube API
 
 const num = v => (v === undefined || v === null || v === "" ? null : Number(v));
 
@@ -70,7 +71,7 @@ async function takeBufferCall(db, now) {
 async function pollYouTube(env, db, fetchFn, now) {
   const since = new Date(now.getTime() - RECENT_DAYS * 86400e3).toISOString();
   const { results } = await db.prepare(
-    "SELECT id, external_id FROM posts WHERE bot = 'chess' AND posted_at > ? ORDER BY posted_at DESC LIMIT 50")
+    "SELECT id, external_id FROM posts WHERE bot IN ('chess', 'bodge') AND posted_at > ? ORDER BY posted_at DESC LIMIT 50")
     .bind(since).all();
   if (!results.length) return 0;
   const byExt = new Map(results.map(r => [r.external_id, r.id]));
@@ -155,16 +156,19 @@ export async function pollStats(env, db, fetchFn = fetch, now = new Date(), { yo
 // posts come from the Buffer poller only: BuriedCasefiles' event carries a link or a
 // "Scheduled for..." note rather than the Buffer id, so it would add a ghost duplicate.
 export async function recordPostFromEvent(db, event, now = new Date()) {
-  if (event.kind !== "posted" || event.bot !== "chess") return false;
+  if (event.kind !== "posted" || !YOUTUBE_BOTS.includes(event.bot)) return false;
   const d = event.data || {};
   const external_id = d.external_id || d.buffer_id;
   if (!external_id) return false;
+  // Bodge reports a post the next time its PC runs, so it sends the real publish time.
+  const sent = typeof d.posted_at === "string" ? Date.parse(d.posted_at) : NaN;
+  const postedAt = Number.isFinite(sent) && sent <= now.getTime() ? new Date(sent) : now;
   return insertPost(db, {
     bot: event.bot,
-    platform: event.bot === "chess" ? "youtube" : "tiktok",
+    platform: "youtube",
     external_id,
     title: String(event.title).replace(/^[^:]*posted: /i, "").slice(0, 120),
-    posted_at: now.toISOString(),
+    posted_at: postedAt.toISOString(),
     url: d.video_url || null,
   });
 }

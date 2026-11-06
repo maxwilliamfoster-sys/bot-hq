@@ -14,7 +14,7 @@ const GROUPS = [["post", "Per post"], ["day", "Day"], ["week", "Week"], ["hour",
 const RANGES = [["24h", "24 hours"], ["7d", "7 days"], ["30d", "30 days"], ["all", "All time"], ["custom", "Custom"]];
 const CHARTS = [["line", "Line"], ["bar", "Bar"], ["scatter", "Dots"], ["table", "Table"]];
 const SPLITS = [["", "Together"], ["bots", "By bot"], ["variant", "By variant"]];
-const BOT_IDS = ["chess", "bcf", "escape", "space", "eagle"];
+const BOT_IDS = ["chess", "bcf", "escape", "space", "eagle", "bodge"];
 const AVERAGED = new Set(["views", "likes", "comments", "shares", "avg_watch_pct", "views_1h", "views_6h", "views_24h", "views_72h"]);
 const EMPTY = "Not enough data yet. History fills in after the nightly backfill, and views at 1h/6h/24h/72h about four hours after each age passes.";
 

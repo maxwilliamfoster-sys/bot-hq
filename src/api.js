@@ -71,6 +71,10 @@ export const routes = [
     const v = validateEvent(body);
     if (!v.ok) return json({ error: v.error }, 400);
     const now = clock(env);
+    if (v.event.kind === "heartbeat") {          // "still running" check-in: stored, never shown in the inbox
+      await setState(env.DB, `heartbeat:${v.event.bot}`, JSON.stringify({ at: now.toISOString(), ...v.event.data }));
+      return json({ ok: true });
+    }
     await recordPostFromEvent(env.DB, v.event, now);
     const r = await processEvent(env, v.event, now);
     return json({ id: r.id, count: r.count, pushed: r.pushed });

@@ -2,7 +2,7 @@
 // single grouped "Bot HQ watcher error" warn and the rest still run.
 import { BOTS, BOT_IDS } from "./bots.js";
 import { processEvent, openActionCount } from "./events.js";
-import { ukParts, valueAtAge, doingWell, postingGaps, stuckPosts, lowPosting, viewsFall } from "./rules.js";
+import { ukParts, valueAtAge, doingWell, postingGaps, stuckPosts, lowPosting, viewsFall, heartbeatAlerts } from "./rules.js";
 import { getState, setState } from "./settings.js";
 import { checkRuns } from "./watch/runs.js";
 import { pollStats } from "./watch/stats.js";
@@ -194,6 +194,14 @@ async function checkGaps(env, db, now) {
   for (const ev of postingGaps(last, pending, now, ctx)) await processEvent(env, ev, now);
 }
 
+async function checkHeartbeats(env, db, now) {
+  for (const bot of ["bodge"]) {
+    let beat = null;
+    try { beat = JSON.parse((await getState(db, `heartbeat:${bot}`)) || "null"); } catch { /* bad row: treat as none */ }
+    for (const ev of heartbeatAlerts(bot, beat, now)) await processEvent(env, ev, now);
+  }
+}
+
 async function thinSnapshots(db, now) {
   const { results } = await db.prepare(
     `SELECT s.id, s.post_id, s.at, p.posted_at FROM snapshots s JOIN posts p ON p.id = s.post_id
@@ -260,6 +268,7 @@ export async function runSchedule(event, env, ctx, fetchFn = fetch, now = new Da
     await step(env, now, "Eagle Eyes stats", () => pollZernioViews(env, db, fetchFn, now));
     await step(env, now, "stuck posts", () => alertStuck(env, [...(r?.queued || []), ...(z?.queued || [])], now));
     await step(env, now, "posting gaps", () => checkGaps(env, db, now));
+    await step(env, now, "PC heartbeats", () => checkHeartbeats(env, db, now));
     await step(env, now, "gate logs", () => refreshGate(env, db, fetchFn, now));
     const ukH = ukParts(now).hhmm;
     if (ukH >= "08:00" && ukH < "21:00") await step(env, now, "radar reminder", () => weeklyRadarCheck(env, db, fetchFn, now));
