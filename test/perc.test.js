@@ -79,11 +79,11 @@ test("a failed Perc Cruncher post alerts under Perc Cruncher", async () => {
   assert.match(ev.body, /audio removed/);
 });
 
-test("Perc Cruncher gap alarm allows its 1-2 a day rhythm", () => {
-  const keys = ctx2 => postingGaps({ perc: ago(33) }, null, NOW, ctx2).map(e => e.dedupe_key);
+test("Perc Cruncher gap alarm allows its 2 a day rhythm", () => {
+  const keys = ctx2 => postingGaps({ perc: ago(27) }, null, NOW, ctx2).map(e => e.dedupe_key);
   assert.deepEqual(keys({ percFeedAt: ago(1) }), ["no_posts:perc"]);
   assert.deepEqual(keys({ percFeedAt: ago(1), percNextDue: ahead(2) }), []);
-  assert.deepEqual(postingGaps({ perc: ago(29) }, null, NOW, { percFeedAt: ago(1) }), []);
+  assert.deepEqual(postingGaps({ perc: ago(23) }, null, NOW, { percFeedAt: ago(1) }), []);
   const [gap] = postingGaps({ perc: ago(40) }, null, NOW, { percFeedAt: ago(1) });
-  assert.match(gap.body, /Normally 1-2 a day/);
+  assert.match(gap.body, /Normally 2 a day/);
 });

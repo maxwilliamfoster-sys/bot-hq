@@ -7,7 +7,7 @@ export const BOTS = {
   escape: { name: "Escape Cup", repo: "escape-cup", note: "escape_cup_tiktok", planned: 3 },
   space: { name: "Space Edits", repo: "space-edits", note: "space_edits", planned: 3 },
   eagle: { name: "Eagle Eyes", repo: "level-up-quiz", note: "level_up_quiz", planned: 3 },
-  // @perc.cruncher giftok posts: 1-2 a day (16:00-17:45 / 19:00-21:45 UK) through Zernio, shared with Eagle Eyes.
+  // @perc.cruncher giftok posts: 2 a day (16:00-17:45 / 19:00-21:45 UK) through Zernio, shared with Eagle Eyes.
   perc: { name: "Perc Cruncher", repo: "giftok-bot", note: "giftok_bot", planned: 2 },
   // Runs on Max's PC (Blender needs the GPU), so it has no GitHub runs; it checks in with a heartbeat.
   bodge: { name: "Bodge Delivers", repo: "bodge-delivers", dir: "what-if-shorts", note: "what_if_shorts", planned: 1 },
