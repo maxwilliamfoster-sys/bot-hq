@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makeD1 } from "./d1.js";
 import { validateEvent, recordEvent, pushDecision, openActionCount } from "../src/events.js";
-import { DEFAULT_SETTINGS } from "../src/settings.js";
+import { DEFAULT_SETTINGS as SHIPPED } from "../src/settings.js";
+const DEFAULT_SETTINGS = { ...SHIPPED, notify_only_needed: false };   // these tests cover the every-alert mode
 import { makeEnv, call, fakeSubscription } from "./helpers.js";
 import { saveSubscription } from "../src/push.js";
 

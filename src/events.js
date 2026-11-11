@@ -1,6 +1,7 @@
 // Events: validation, grouping of repeats, push decisions. Used by /api/event and the watchers.
 import { shouldPush } from "./rules.js";
 import { buildFixPrompt } from "./prompt.js";
+import { buildCoachPrompt } from "./coach.js";
 import { getSettings } from "./settings.js";
 import { pushAll } from "./push.js";
 import { BOTS } from "./bots.js";
@@ -29,7 +30,9 @@ export function validateEvent(obj) {
 }
 
 // A reminder has no fix prompt: its prompt is the Radar tab's.
-const promptFor = ev => ev.kind !== "radar_weekly" && (ev.severity === "action" || ev.severity === "warn")
+const promptFor = ev => ev.kind === "coach"
+  ? buildCoachPrompt({ bot: ev.bot, code: ev.data.code, numbers: ev.data.numbers || {}, verdicts: ev.data.verdicts || null })
+  : ev.kind !== "radar_weekly" && (ev.severity === "action" || ev.severity === "warn")
   ? buildFixPrompt({
     bot: ev.bot, kind: ev.kind, title: ev.title, body: ev.data.external_detail ? "" : ev.body, repo: ev.data.repo,
     runUrl: ev.data.run_url, step: ev.data.step, logTail: ev.data.log_tail, externalDetail: ev.data.external_detail,

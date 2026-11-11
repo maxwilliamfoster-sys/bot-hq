@@ -116,6 +116,10 @@ export const routes = [
   ["GET", "/api/radar", "session", async ({ env }) => json(await radarData(env.RADAR_FETCH || fetch))],
 
   ["GET", "/api/tracker", "session", async ({ env }) => json(await trackerData(env.DB))],
+  ["GET", "/api/coach", "session", async ({ env }) => {
+    try { return json(JSON.parse(await getState(env.DB, "coach_latest")) || { at: null, verdicts: {} }); }
+    catch { return json({ at: null, verdicts: {} }); }
+  }],
   ["POST", "/api/tracker", "bot", async ({ env, body }) => {
     if (!validTracker(body)) return json({ error: "bad_tracker" }, 400);
     await saveTracker(env.DB, body);

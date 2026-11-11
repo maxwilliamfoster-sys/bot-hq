@@ -1,6 +1,7 @@
 import { api, el, toast, isIOS, isStandalone } from "./lib.js";
 
 const TYPES = [
+  ["notify_only_needed", "Only when I am needed", "Just two kinds of alert: something broke, or it is time to go back to Claude. Turns the four below off without changing them"],
   ["notify_action", "Needs you", "Always sent, even in quiet hours"],
   ["notify_warn", "Failed or blocked posts", "A video couldn't post or was held back"],
   ["notify_good", "Doing well", "A post is in its bot's top 10%"],

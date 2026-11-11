@@ -2,6 +2,7 @@
 // All numbers come from the analytics check on Max's PC; this only draws them.
 import { api, el, ago, fmt, BOT_NAMES } from "./lib.js";
 import { drawChart, destroyCharts } from "./chart.js";
+import { PLAYBOOK, VERDICTS } from "../coach.js";
 
 const APP_BOT = { buried: "bcf" };     // the tracker's name for an account -> this app's
 const appBot = key => APP_BOT[key] || key;
@@ -49,7 +50,22 @@ function change(a) {
   return el("span", {}, el("span", { class: `sev-${tone}` }, `${a.change_pct > 0 ? "+" : ""}${a.change_pct}%`), " vs the 14 days before");
 }
 
-function account(a, trend) {
+// Why views stall on this account and what helps, from coach.js (the same text Claude is sent).
+function playbook(bot, health) {
+  const book = PLAYBOOK[bot];
+  if (!book) return null;
+  const v = health && VERDICTS[health.code];
+  return el("details", { class: "progress-more" },
+    el("summary", {}, "Why views stall here, and the plan", v ? el("span", { class: `sev sev-${v.tone} status-tag coach-tag` }, v.label) : null),
+    v ? el("p", { class: "small" }, v.means, health.median ? ` Usually ${fmt(health.median)} views at 3 days old; the last five, ${fmt(health.recent)}.` : "") : null,
+    el("p", { class: "small section-sm" }, el("strong", {}, "The risk: "), book.risk),
+    el("p", { class: "small section-sm" }, el("strong", {}, "What helps, most useful first")),
+    el("ol", { class: "small coach-list" }, book.steps.map(s => el("li", {}, s))),
+    el("p", { class: "small section-sm" }, el("strong", {}, "Only you can check these (in the app)")),
+    el("ul", { class: "small coach-list" }, book.checks.map(s => el("li", {}, s))));
+}
+
+function account(a, trend, coach) {
   return el("section", { class: "panel", dataset: { bot: appBot(a.key) } },
     el("div", { class: "panel-head" }, el("h2", {}, BOT_NAMES[appBot(a.key)]), sev(a.verdict)),
     el("p", { class: "progress-big" }, fmt(a.views_now)),
@@ -63,7 +79,8 @@ function account(a, trend) {
     el("p", { class: "muted small section-sm" }, `Since ${day(a.changed_on)}: ${a.n_after} of the ${a.need_after} videos needed to judge the change`),
     meter(100 * a.n_after / a.need_after, `${a.n_after} of ${a.need_after} videos`),
     el("p", { class: "small section-sm" }, `Latest: ${a.latest_update}`),
-    a.alert ? el("p", { class: "small sev-action section-sm" }, a.alert) : null);
+    a.alert ? el("p", { class: "small sev-action section-sm" }, a.alert) : null,
+    playbook(appBot(a.key), coach.verdicts?.[appBot(a.key)]));
 }
 
 function testRow(t) {
@@ -114,6 +131,7 @@ function changes(list) {
 
 export async function progressView(filter) {
   const d = await api("/api/tracker");
+  const coach = await api("/api/coach").catch(() => ({ verdicts: {} }));
   destroyCharts();
   if (!d.available) {
     return [el("div", { class: "empty" }, el("p", {}, "No progress numbers yet. They arrive the next time the analytics check runs on your PC."))];
@@ -137,7 +155,7 @@ export async function progressView(filter) {
     el("nav", { class: "section-sm", "aria-label": "Show one account" }, el("div", { class: "chips" },
       el("a", { class: "chip", href: "#/bots", "aria-pressed": only ? "false" : "true" }, "All"),
       keys.map(k => el("a", { class: "chip", href: `#/bots/${k}`, "aria-pressed": k === only ? "true" : "false" }, BOT_NAMES[appBot(k)])))),
-    el("div", { class: "section-sm" }, d.accounts.filter(a => !only || a.key === only).map(a => account(a, d.trend))),
+    el("div", { class: "section-sm" }, d.accounts.filter(a => !only || a.key === only).map(a => account(a, d.trend, coach))),
     section("Tests", "Each bar fills as the smaller group reaches the number of videos a fair comparison needs.",
       tests.length ? el("ul", { class: "feed" }, [...tests].sort((a, b) => rank(a) - rank(b)).map(testRow)) : el("p", { class: "muted" }, "No tests on this account.")),
     section("Waiting to be done", null, d.todos.length ? el("ul", { class: "feed" }, d.todos.map(jobRow)) : el("p", { class: "muted" }, "Nothing waiting.")),

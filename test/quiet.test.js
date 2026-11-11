@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { ukParts, inQuietHours, shouldPush } from "../src/rules.js";
 import { DEFAULT_SETTINGS } from "../src/settings.js";
 
-const S = DEFAULT_SETTINGS;
+const S = { ...DEFAULT_SETTINGS, notify_only_needed: false };   // the every-alert mode
 const at = iso => new Date(iso);
 
 test("ukParts gives UK local time on both sides of the clock change", () => {
@@ -37,4 +37,17 @@ test("shouldPush matrix", () => {
   assert.equal(shouldPush({ severity: "info", kind: "summary" }, { ...S, notify_summary: false }, day), false);
   assert.equal(shouldPush({ severity: "warn", kind: "post_failed" }, { ...S, notify_warn: false }, day), false);
   assert.equal(shouldPush({ severity: "action", kind: "x" }, { ...S, notify_action: false }, day), false);
+});
+
+test("only when needed (the default): just breakages and 'ask Claude' cards reach the phone", () => {
+  const D = DEFAULT_SETTINGS;
+  const day = at("2026-10-26T12:00:00Z"), night = at("2026-10-26T23:00:00Z");
+  assert.equal(D.notify_only_needed, true);
+  assert.equal(shouldPush({ severity: "action", kind: "run_failed" }, D, night), true);      // something broke
+  assert.equal(shouldPush({ severity: "action", kind: "coach" }, D, night), true);           // time to go back to Claude
+  assert.equal(shouldPush({ severity: "good", kind: "coach" }, D, day), true);               // a breakout to build on
+  assert.equal(shouldPush({ severity: "good", kind: "coach" }, D, night), false);            // good news waits for morning
+  for (const [severity, kind] of [["info", "posted"], ["info", "summary"], ["good", "doing_well"], ["warn", "post_failed"], ["warn", "views_fall"]]) {
+    assert.equal(shouldPush({ severity, kind }, D, day), false, kind);
+  }
 });

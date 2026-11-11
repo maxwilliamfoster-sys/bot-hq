@@ -7,6 +7,7 @@ export const DEFAULT_SETTINGS = {
   notify_good: true,
   notify_posted: true,
   notify_summary: true,
+  notify_only_needed: true,
 };
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;

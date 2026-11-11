@@ -5,6 +5,7 @@ const SEV = { action: ["Needs you", "sev-action"], warn: ["Failed or blocked", "
 
 function whatToDo(e) {
   if (e.kind === "radar_weekly") return "Open the Radar tab, tap Copy prompt for Claude and paste it into Claude. When Claude has chosen the tests, tap Mark done.";
+  if (e.kind === "coach") return "Do the quick checks listed in the message (they are things only you can see in the TikTok or YouTube app), type what you saw after each arrow, then paste the whole message into Claude. When Claude has made the change, tap Mark done.";
   if (e.kind === "run_failed") return "Copy the fix prompt and paste it into Claude. It has the failed step, the end of the log and the rules to follow.";
   if (e.fix_prompt && (e.severity === "action" || e.severity === "warn")) {
     return "Copy the fix prompt and paste it into Claude. When it's fixed, tap Mark done.";
@@ -61,7 +62,7 @@ export async function eventView({ arg, setTabCount }) {
       el("h1", { class: "detail-title" }, e.title),
       el("p", { class: "muted" }, el("span", { dataset: { bot: e.bot } }, botTag(e.bot)), " ",
         e.count > 1 ? `${e.count} times, first ${ago(e.at)}, last ${ago(e.last_at)}` : ago(e.at))),
-    e.fix_prompt ? el("button", { class: "btn btn-primary btn-block btn-copy", onclick: () => copy(e.fix_prompt, pre) }, "Copy fix prompt") : null,
+    e.fix_prompt ? el("button", { class: "btn btn-primary btn-block btn-copy", onclick: () => copy(e.fix_prompt, pre) }, e.kind === "coach" ? "Copy message for Claude" : "Copy fix prompt") : null,
     el("section", { class: "block" }, el("h3", {}, "What happened"),
       el("p", { class: "body-text" }, e.body || e.title),
       e.data.step ? el("p", { class: "muted" }, `Failed step: ${e.data.step}`) : null),

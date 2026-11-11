@@ -10,6 +10,7 @@ import { pollZernio, pollZernioViews } from "./watch/zernio.js";
 import { thinPlan } from "./thin.js";
 import { refreshGate } from "./watch/gate.js";
 import { weeklyRadarCheck } from "./radar.js";
+import { viewHealth, coachEvent, reviewEvent, PLAYBOOK, REVIEW_EVERY_DAYS } from "./coach.js";
 
 const H = 3600e3;
 const MILESTONES = [1, 6, 24, 72];      // 72h is stored for graphs; alerts use 1/6/24
@@ -168,6 +169,37 @@ async function checkViewsFall(env, db, now) {
   }
 }
 
+// Once a day: what each account's view pattern means (coach.js). The verdicts are kept for the Bots tab.
+// An account that needs new work gets one "ask Claude" card, at most once every 14 days per verdict,
+// and every 14 days there is one review reminder. Nothing else here ever pushes.
+const COACH_REPEAT_D = 14;
+export async function checkCoach(env, db, now) {
+  const { results } = await db.prepare(
+    `SELECT p.bot, p.posted_at,
+       (SELECT m.views FROM milestones m WHERE m.post_id = p.id AND m.h = 24) AS v24,
+       (SELECT m.views FROM milestones m WHERE m.post_id = p.id AND m.h = 72) AS v72
+     FROM posts p WHERE p.posted_at > ? ORDER BY p.posted_at DESC`)
+    .bind(new Date(now.getTime() - 60 * 24 * H).toISOString()).all();
+  const verdicts = {};
+  const since = new Date(now.getTime() - COACH_REPEAT_D * 24 * H).toISOString();
+  for (const bot of BOT_IDS) {
+    const health = viewHealth(results.filter(r => r.bot === bot), { platform: PLAYBOOK[bot]?.platform });
+    verdicts[bot] = health;
+    const ev = coachEvent(bot, health);
+    if (!ev) continue;
+    if (await db.prepare("SELECT 1 AS x FROM events WHERE dedupe_key = ? AND at > ?").bind(ev.dedupe_key, since).first("x")) continue;
+    await processEvent(env, ev, now);
+  }
+  await setState(db, "coach_latest", JSON.stringify({ at: now.toISOString(), verdicts }));
+  const last = await getState(db, "coach_review_at");
+  if (!last) await setState(db, "coach_review_at", now.toISOString());          // the first review is two weeks after go-live
+  else if (now.getTime() - Date.parse(last) >= REVIEW_EVERY_DAYS * 24 * H) {
+    await setState(db, "coach_review_at", now.toISOString());
+    await processEvent(env, reviewEvent(verdicts), now);
+  }
+  return verdicts;
+}
+
 // healthchecks.io raises the alarm when these stop. A failed ping is not an error here: the silence is the signal.
 async function pingAlarm(env, db, fetchFn) {
   if (!env.HEALTHCHECK_URL) return;
@@ -279,6 +311,7 @@ export async function runSchedule(event, env, ctx, fetchFn = fetch, now = new Da
   await step(env, now, "doing well", () => checkDoingWell(env, db, now, hourly));
   if (now.getUTCHours() === 3 && hourly) await step(env, now, "thinning", () => thinSnapshots(db, now));
   if (now.getUTCHours() === 6 && hourly) await step(env, now, "views falling", () => checkViewsFall(env, db, now));
+  if (now.getUTCHours() === 8 && hourly) await step(env, now, "coach", () => checkCoach(env, db, now));
 
   // A whole hour, not one tick, so a late or failed 07:30 run still gets its summary out.
   const uk = ukParts(now);

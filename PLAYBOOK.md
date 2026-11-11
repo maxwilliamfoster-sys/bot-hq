@@ -13,6 +13,35 @@ secrets go in `npx wrangler secret put <NAME>` or the GitHub repo secrets only.
 | **Posted** (quiet) | `posted` | Nothing. Every publish. |
 | **Summary** | `summary` (07:30 UK, pushed), `digest` (chess loop_nightly text, Inbox only) | Read it. |
 
+**Only when I am needed** (Settings, on by default since 2026-11-11): the phone only buzzes for two things, a red
+**Needs you** card (something broke) or a **coach** card (time to go back to Claude). Everything else still lands in
+the Inbox. Turn the switch off to get every alert again.
+
+### Coach cards (`coach`): when to go back to Claude, and what to say
+
+Once a day (08:00 UTC) `src/coach.js` reads each account's views at 3 days old and gives it a verdict, shown on the
+Bots tab under "Why views stall here, and the plan":
+
+| Verdict | Means | Card? |
+|---|---|---|
+| Still learning | Under 15 videos past 3 days old | no |
+| Normal | Views vary between videos | no |
+| Stuck at one level | Every video gets the same test audience and no more: the opening has to change. Not a ban | no (the tests already cover it) |
+| Breakout | A video reached 3 times the usual level | yes, good news |
+| Sudden drop | 4 of the last 5 below the old 10th percentile | yes |
+| Tiny audience every time | TikTok only: under 150 views on every video, whatever it is like | yes |
+| Not being shown | The last two videos got almost nothing in their first day | yes |
+
+A card repeats at most every 14 days per account and verdict. Every 14 days there is also one
+"Time for the two-week review" card. Open the card, do the quick checks it lists (things only you can see in the
+TikTok or YouTube app), tap **Copy message for Claude**, type what you saw after each arrow, and paste it into Claude.
+The message already holds the numbers, the account's known risk and its ranked plan. The rules and the advice come
+from `Content-Bots/analytics-check/research_notes/2026-11-10 view caps and shadowbans.md`; edit `PLAYBOOK` in
+`src/coach.js` when a step is done or the plan changes, then deploy.
+
+Neither platform shows a restriction to Bot HQ, Buffer or Zernio. Only the app's own notices can confirm one, which
+is why the card asks you to look.
+
 The same failure inside 24 hours becomes one card with a count, pushed on the 1st and 3rd time only.
 `watcher_error` means Bot HQ itself couldn't read GitHub, YouTube or Buffer for one step; it retries every 5 minutes.
 

@@ -25,8 +25,12 @@ function toggleFor(event) {
   return { action: "notify_action", warn: "notify_warn", good: "notify_good" }[event.severity] || "notify_posted";
 }
 
+// "Only when I am needed" (Max, 2026-11-10): the bots should run themselves, so the phone stays quiet unless
+// something broke (severity action) or it is time to go back to Claude (kind coach). Everything else is in the Inbox.
 export function shouldPush(event, settings, date) {
   if (event.kind === "digest") return false;          // in the Inbox only; the 07:30 summary is the morning push
+  if (event.kind === "coach") return event.severity === "action" ? !!settings.notify_action : !inQuietHours(date, settings);
+  if (settings.notify_only_needed && event.severity !== "action") return false;
   if (event.severity === "action") return !!settings.notify_action;
   if (!settings[toggleFor(event)]) return false;
   return !inQuietHours(date, settings);
