@@ -92,8 +92,8 @@ export const PLAYBOOK = {
     risk: "True crime sits close to TikTok's sensitive-content rules, and narration over stock clips can count as content with little added.",
     steps: [
       "Open the 10 best and 10 worst recent posts in TikTok and look for a 'not eligible for For You' notice. The reason given says what to change.",
-      "Open each video on something specific to the case in the first 3 seconds (a map pin and year, a timeline card, the court outcome).",
-      "Never reuse the same first three words within 15 posts.",
+      "Never reuse the same first three words within 15 posts. Done 11 Nov 2026: the bot now refuses a repeated opening.",
+      "Open each video on something specific to the case. A place-and-year tag is built and queued as the next test; a map or timeline card would be the step after.",
       "Keep hooks and captions free of graphic detail, and keep the AI label on.",
       "Stay at 3 a day or fewer, at least 4 hours apart.",
     ],
@@ -103,8 +103,8 @@ export const PLAYBOOK = {
     platform: "tiktok",
     risk: "Views collapsed once before when the posting rate went up, and every video has the same layout.",
     steps: [
-      "Never post more than 3 a day; go back to 2 if views drop after a change.",
-      "Add variety a viewer can see: arena shape, ring rules, number of teams. Colour themes do not count.",
+      "Never post more than 3 a day (enforced in code since 11 Nov 2026); go back to 2 if views drop after a change.",
+      "Add variety a viewer can see. The 16-country royale and the standings table are already queued tests; a new arena shape is the step after (10 or 14 rings looked too alike or produced no good matches).",
       "Keep the tournament story going (standings, champion, next fixture) so each video differs by content.",
       "Never raise the posting rate and change the format in the same week.",
     ],
@@ -115,7 +115,7 @@ export const PLAYBOOK = {
     risk: "Agency footage with text over it is the closest thing here to 'reused material with nothing new', which TikTok does not recommend.",
     steps: [
       "Every edit adds a named target and one specific fact or size comparison of its own.",
-      "Never reuse a hook line within 20 posts.",
+      "Never reuse a hook line within 20 posts. Done 11 Nov 2026: 80 opening lines and a 20-post rule.",
       "Never use a clip carrying another editor's or channel's watermark; keep the source credit.",
       "Stay at 3 a day or fewer.",
       "If any post shows 'sound removed', drop that track from the music list.",
@@ -127,7 +127,7 @@ export const PLAYBOOK = {
     risk: "Every post lands in the same tiny band of views even when viewers watch three times longer, which fits an account-level limit or an opening that never earns a wider test.",
     steps: [
       "Do the manual checks below and tell Claude the result. Until then no format change can be credited or blamed.",
-      "Try a speed round: 3 levels in about 12 seconds, hardest-looking first.",
+      "Speed round: 3 hard levels in 14 seconds. Live for a third of posts from 12 Nov 2026. If 5 or more of them also land at 62-98 views, the limit is the account, not the format.",
       "Change the look between posts (colours, shapes, objects) so the grids are not identical.",
       "If three clearly different formats of 5 posts each all land in the same band, treat it as account-level and ask TikTok through 'Report a problem'.",
     ],
