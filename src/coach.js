@@ -95,6 +95,7 @@ export const PLAYBOOK = {
       "Never reuse the same first three words within 15 posts. Done 11 Nov 2026: the bot now refuses a repeated opening.",
       "Open each video on something specific to the case. A place-and-year tag is built and queued as the next test; a map or timeline card would be the step after.",
       "Keep hooks and captions free of graphic detail, and keep the AI label on.",
+      "Footage must fit the case and never look like someone's home. Done 12 Nov 2026: hallway and staircase clips retired, place footage only when the case happened somewhere like it, and every narrated sentence checked and retaken if unclear.",
       "Stay at 3 a day or fewer, at least 4 hours apart.",
     ],
     checks: ["TikTok > Settings > Account > Account status (or the system inbox) for violations.", "Each post's Analytics page: For You share, and any eligibility notice."],
