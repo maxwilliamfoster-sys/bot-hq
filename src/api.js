@@ -3,7 +3,7 @@ import { login, logout, hasSession, bearerOk, sessionCookie, clearCookie } from 
 import { getSettings, putSettings, getState, setState } from "./settings.js";
 import { saveSubscription, removeSubscription, pushAll } from "./push.js";
 import { validateEvent, processEvent } from "./events.js";
-import { clock } from "./bots.js";
+import { BOTS, clock } from "./bots.js";
 import { recordPostFromEvent } from "./watch/stats.js";
 import { ingest } from "./ingest.js";
 import { liveData, botsData } from "./views.js";
@@ -127,6 +127,18 @@ export const routes = [
   }],
 
   ["POST", "/api/ingest", "bot", async ({ env, body }) => json(await ingest(env.DB, body))],
+
+  // Read-only list of one bot's posts with their latest view count, for the tracker on the PC (analytics-check),
+  // which has no other source for Perc Cruncher and Bodge Delivers.
+  ["GET", "/api/posts", "bot", async ({ env, url }) => {
+    const bot = url.searchParams.get("bot") || "";
+    if (!BOTS[bot]) return json({ error: "bad_bot" }, 400);
+    const { results } = await env.DB.prepare(
+      `SELECT p.external_id, p.title, p.posted_at, p.format, p.variant, p.url,
+              (SELECT s.views FROM snapshots s WHERE s.post_id = p.id ORDER BY s.at DESC LIMIT 1) AS views
+       FROM posts p WHERE p.bot = ? AND p.posted_at IS NOT NULL ORDER BY p.posted_at`).bind(bot).all();
+    return json({ bot, posts: results });
+  }],
 
   ["GET", "/api/settings", "session", async ({ env }) => json(await getSettings(env.DB))],
   ["PUT", "/api/settings", "session", async ({ env, body }) => json(await putSettings(env.DB, body))],
