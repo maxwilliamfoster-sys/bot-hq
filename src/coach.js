@@ -138,7 +138,8 @@ export const PLAYBOOK = {
     risk: "TikTok names 'short clips made from GIFs only' as content it does not recommend, GIFs often carry someone's watermark, and baked-in music can be muted.",
     steps: [
       "Music: only licensed (CC BY) producer beats, credited in the caption. Done 11 Nov 2026. If a post is still muted, tell Claude which one.",
-      "Never post a single GIF: always the caption plus 2 to 4 GIFs with cuts, a speed change or a zoom.",
+      "Never post a single GIF: always the caption plus 2 to 4 GIFs with cuts, a speed change or a zoom. Done 12 Nov 2026: cuts land on the beat, each GIF punches in, the last one speeds up.",
+      "No caption may repeat a phrase from the last 8 posts (done 12 Nov 2026), and only niche hashtags: no #fyp, #foryou or #viral.",
       "Only GIFs with no watermark or logo. Never crop a watermark off.",
       "Clean captions only: nothing sexual, no drugs, no insults.",
       "1 or 2 posts a day at most.",
@@ -151,6 +152,8 @@ export const PLAYBOOK = {
     risk: "Too new to judge. One premise repeated daily is close to what YouTube calls templated content.",
     steps: [
       "Vary the mechanic, not only the object (doubling, halving, racing, queueing, stacking); no mechanic more than twice in 7 posts.",
+      "Open on the payoff, not the set-up. Testing from ep0024 (19 Nov 2026): even episodes say where he ends up first. After 10 of each, keep the style with more views at 3 days.",
+      "First week: shrink, grow and speed got 630 to 1,235 views; heat, crowd and stack got 150 to 206. If that holds after 3 more of each, tell Claude to make the first three rules come up more often.",
       "Stay at 1 a day until 20 Shorts are 3 days old.",
       "Keep the title-similarity check as a hard block.",
     ],
