@@ -80,7 +80,8 @@ function autopilotFor(ap, a) {
     el("div", { class: "panel-head" }, el("h3", {}, "Autopilot"),
       x.stage ? el("span", { class: `sev sev-${STAGE_TONE[x.stage]} status-tag` }, `Stage ${x.stage}: ${x.stage_name}`) : null),
     el("p", { class: "muted small" }, [
-      x.weeks_since_high == null ? "Not enough history to judge growth yet" : x.weeks_since_high === 0 ? "Views at a new high" : `${x.weeks_since_high} weeks without a new high`,
+      x.weeks_since_high == null ? "Not enough history to judge growth yet" : x.weeks_since_high === 0 ? "Views at a new high"
+        : `${x.weeks_since_high} weeks without a new high (best 2 weeks ${fmt(Math.max(...x.window_views))}, now ${fmt(x.window_views[0])})`,
       `${x.no_win_streak} test${x.no_win_streak === 1 ? "" : "s"} in a row without a winner`,
       `${x.reviews_done} review${x.reviews_done === 1 ? "" : "s"} so far`].join(" · ")),
     x.stage ? more("What it does at this stage", text(x.stage_rule)) : null,
