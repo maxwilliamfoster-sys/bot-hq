@@ -47,6 +47,36 @@ test("a newer check replaces the old numbers", async () => {
   assert.equal(out.summary.yours, 0);
 });
 
+const AUTOPILOT = {
+  generated: "2026-11-16T18:40:00Z", health_at: "2026-11-16T18:31:00Z",
+  next: { key: "buried", name: "Buried Case Files", why: "test results waiting" },
+  health: [{ key: "chess", name: "Chess", last_post_h: 4, stalled: false, failed_runs: [], last_review: "2026-11-16", signals: [] }],
+  accounts: [{ key: "chess", name: "Chess", stage: 4, stage_name: "Rethink", stage_rule: "r", weeks_since_high: 9, no_win_streak: 0,
+    window_views: [1053], reviews_done: 1, last_review: { date: "2026-11-16", summary: "s" },
+    latest: { date: "2026-11-16", account: "chess", watched: "w", numbers: "n", changes: "c", tests: "t", next: ["x"] },
+    approaches: [], ideas_open: ["i"] }],
+  reviews: [{ date: "2026-11-16", account: "chess", summary: "s" }],
+};
+
+test("the autopilot's reviews and stages travel with the tracker", async () => {
+  const env = await makeEnv();
+  const cookie = await signIn(env);
+  await call(env, "POST", "/api/tracker", { body: { ...TRACKER, autopilot: AUTOPILOT }, headers: BOT });
+  const out = await (await call(env, "GET", "/api/tracker", { cookie })).json();
+  assert.deepEqual(out.autopilot, AUTOPILOT);
+});
+
+test("a tracker without the autopilot, or with a broken one, still saves", async () => {
+  const env = await makeEnv();
+  const cookie = await signIn(env);
+  for (const autopilot of [undefined, null, "x", { accounts: "no" }]) {
+    assert.equal((await call(env, "POST", "/api/tracker", { body: { ...TRACKER, autopilot }, headers: BOT })).status, 200);
+    const out = await (await call(env, "GET", "/api/tracker", { cookie })).json();
+    assert.equal(out.autopilot, null);
+    assert.equal(out.accounts.length, 3);
+  }
+});
+
 test("only the bot token can save and only a session can read", async () => {
   const env = await makeEnv();
   const cookie = await signIn(env);

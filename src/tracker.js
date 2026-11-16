@@ -8,8 +8,15 @@ export function validTracker(b) {
   return !!b && !Number.isNaN(Date.parse(b.generated)) && LISTS.every(k => Array.isArray(b[k])) && b.accounts.length > 0;
 }
 
+// The daily autopilot's block (reviews, stages, health check). Optional: a malformed one is dropped, never fatal.
+export function validAutopilot(a) {
+  return !!a && typeof a === "object" && Array.isArray(a.accounts) && Array.isArray(a.reviews) && Array.isArray(a.health);
+}
+
 export async function saveTracker(db, body) {
-  await setState(db, "tracker", JSON.stringify(Object.fromEntries(["generated", ...LISTS].map(k => [k, body[k]]))));
+  const saved = Object.fromEntries(["generated", ...LISTS].map(k => [k, body[k]]));
+  saved.autopilot = validAutopilot(body.autopilot) ? body.autopilot : null;
+  await setState(db, "tracker", JSON.stringify(saved));
 }
 
 function summary({ accounts, tests, todos }) {

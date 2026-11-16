@@ -338,6 +338,10 @@ a.chip { display: inline-flex; align-items: center; }
 .progress-more summary { min-height: 44px; display: flex; align-items: center; font-weight: 600; cursor: pointer; }
 .row.is-static { cursor: default; }
 .status-tag { margin-top: 0; white-space: nowrap; }
+/* Autopilot: the daily review's findings, per account and at the top of the Bots tab */
+.autopilot-box { border-top: 1px solid var(--line, rgba(127,127,127,.25)); padding-top: var(--s3); }
+.autopilot-box h3 { font-size: 16px; margin: 0; }
+.pre-line { white-space: pre-line; overflow-wrap: anywhere; }
 
 /* Coach: the per-account playbook on the Bots tab */
 .coach-tag { margin-left: var(--s2); }

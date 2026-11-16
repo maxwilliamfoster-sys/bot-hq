@@ -65,7 +65,65 @@ function playbook(bot, health) {
     el("ul", { class: "small coach-list" }, book.checks.map(s => el("li", {}, s))));
 }
 
-function account(a, trend, coach) {
+// ---- Autopilot: the daily Claude review (analytics-check/autopilot). It reviews one account a day,
+// watches its videos, changes what needs changing and runs the next test; this shows what it did.
+const STAGE_TONE = { 1: "good", 2: "info", 3: "warn", 4: "action" };
+const text = (t, cls = "small pre-line") => (t ? el("p", { class: cls }, t) : null);
+const more = (title, ...body) => (body.some(Boolean) ? el("details", { class: "progress-more" }, el("summary", {}, title), ...body) : null);
+const list = items => (items?.length ? el("ul", { class: "small coach-list" }, items.map(s => el("li", {}, s))) : null);
+
+function autopilotFor(ap, a) {
+  const x = ap?.accounts?.find(r => r.key === a.key);
+  if (!x) return null;
+  const r = x.latest;
+  return el("div", { class: "autopilot-box section-sm" },
+    el("div", { class: "panel-head" }, el("h3", {}, "Autopilot"),
+      x.stage ? el("span", { class: `sev sev-${STAGE_TONE[x.stage]} status-tag` }, `Stage ${x.stage}: ${x.stage_name}`) : null),
+    el("p", { class: "muted small" }, [
+      x.weeks_since_high == null ? "Not enough history to judge growth yet" : x.weeks_since_high === 0 ? "Views at a new high" : `${x.weeks_since_high} weeks without a new high`,
+      `${x.no_win_streak} test${x.no_win_streak === 1 ? "" : "s"} in a row without a winner`,
+      `${x.reviews_done} review${x.reviews_done === 1 ? "" : "s"} so far`].join(" · ")),
+    x.stage ? more("What it does at this stage", text(x.stage_rule)) : null,
+    x.last_review ? el("p", { class: "small section-sm" }, el("strong", {}, `Last review ${day(x.last_review.date)}: `), x.last_review.summary)
+      : el("p", { class: "muted small section-sm" }, "Not reviewed yet. It will come round soon."),
+    r ? more("What it saw and heard", text(r.watched)) : null,
+    r ? more("The numbers it read", text(r.numbers)) : null,
+    r ? more("What it changed", text(r.changes), text(r.tests)) : null,
+    r?.next?.length ? more("What the next review will check", list(r.next)) : null,
+    x.approaches?.length ? more("Approaches tried", list(x.approaches.map(p => `${day(p.date)} · ${p.family}: ${p.what}${p.outcome ? ` (${p.outcome})` : ""}`))) : null,
+    x.ideas_open?.length ? more("Ideas waiting", list(x.ideas_open)) : null);
+}
+
+function healthRow(h) {
+  const bad = h.failed_runs?.length || h.stalled;
+  return el("li", {}, el("div", { class: "row is-static", dataset: { bot: appBot(h.key) } },
+    el("span", { class: "mark" }),
+    el("div", { class: "progress-text" },
+      el("div", { class: "title" }, BOT_NAMES[appBot(h.key)] || h.name),
+      el("div", { class: "muted small" }, [
+        h.last_post_h == null ? "last post unknown" : `last post ${h.last_post_h} h ago`,
+        h.last_review ? `reviewed ${day(h.last_review)}` : "not reviewed yet"].join(" · ")),
+      h.failed_runs?.length ? el("div", { class: "small sev-action" }, h.failed_runs.join("; ")) : null,
+      h.signals?.length ? el("div", { class: "muted small" }, h.signals.join("; ")) : null),
+    el("span", { class: `sev sev-${bad ? "action" : "good"} status-tag` }, bad ? (h.stalled ? "Stalled" : "Failed run") : "OK")));
+}
+
+function autopilotTop(ap, only) {
+  if (!ap) return null;
+  const health = (ap.health || []).filter(h => !only || h.key === only);
+  const reviews = (ap.reviews || []).filter(r => !only || r.account === only);
+  return el("section", { class: "panel section-sm" },
+    el("div", { class: "panel-head" }, el("h2", {}, "Autopilot"), el("span", { class: "muted small" }, `updated ${ago(ap.generated)}`)),
+    el("p", { class: "small" }, "Every evening Claude checks all 7 bots, then reviews one account in depth: watches its videos like a viewer, reads the numbers, researches the niche, fixes faults and starts the next test."),
+    ap.next?.name ? el("p", { class: "small section-sm" }, el("strong", {}, "Next review: "), `${ap.next.name}. ${ap.next.why}`) : null,
+    reviews.length ? el("p", { class: "small section-sm" }, el("strong", {}, `Latest review (${day(reviews[0].date)}, ${BOT_NAMES[appBot(reviews[0].account)]}): `), reviews[0].summary) : null,
+    health.length ? more(`Health check, ${ago(ap.health_at)}`, el("ul", { class: "feed" }, health.map(healthRow))) : null,
+    reviews.length > 1 ? more(`All reviews (${reviews.length})`, el("ul", { class: "feed" }, reviews.map(r =>
+      el("li", {}, el("div", { class: "row is-static", dataset: { bot: appBot(r.account) } }, el("span", { class: "mark" }),
+        el("div", { class: "progress-text" }, el("div", { class: "muted small" }, `${day(r.date)} · ${BOT_NAMES[appBot(r.account)]}`), el("div", { class: "small" }, r.summary))))))) : null);
+}
+
+function account(a, trend, coach, ap) {
   return el("section", { class: "panel", dataset: { bot: appBot(a.key) } },
     el("div", { class: "panel-head" }, el("h2", {}, BOT_NAMES[appBot(a.key)]), sev(a.verdict)),
     el("p", { class: "progress-big" }, fmt(a.views_now)),
@@ -80,6 +138,7 @@ function account(a, trend, coach) {
     meter(100 * a.n_after / a.need_after, `${a.n_after} of ${a.need_after} videos`),
     el("p", { class: "small section-sm" }, `Latest: ${a.latest_update}`),
     a.alert ? el("p", { class: "small sev-action section-sm" }, a.alert) : null,
+    autopilotFor(ap, a),
     playbook(appBot(a.key), coach.verdicts?.[appBot(a.key)]));
 }
 
@@ -155,7 +214,8 @@ export async function progressView(filter) {
     el("nav", { class: "section-sm", "aria-label": "Show one account" }, el("div", { class: "chips" },
       el("a", { class: "chip", href: "#/bots", "aria-pressed": only ? "false" : "true" }, "All"),
       keys.map(k => el("a", { class: "chip", href: `#/bots/${k}`, "aria-pressed": k === only ? "true" : "false" }, BOT_NAMES[appBot(k)])))),
-    el("div", { class: "section-sm" }, d.accounts.filter(a => !only || a.key === only).map(a => account(a, d.trend, coach))),
+    autopilotTop(d.autopilot, only),
+    el("div", { class: "section-sm" }, d.accounts.filter(a => !only || a.key === only).map(a => account(a, d.trend, coach, d.autopilot))),
     section("Tests", "Each bar fills as the smaller group reaches the number of videos a fair comparison needs.",
       tests.length ? el("ul", { class: "feed" }, [...tests].sort((a, b) => rank(a) - rank(b)).map(testRow)) : el("p", { class: "muted" }, "No tests on this account.")),
     section("Waiting to be done", null, d.todos.length ? el("ul", { class: "feed" }, d.todos.map(jobRow)) : el("p", { class: "muted" }, "Nothing waiting.")),
