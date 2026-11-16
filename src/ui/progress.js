@@ -3,6 +3,7 @@
 import { api, el, ago, fmt, BOT_NAMES } from "./lib.js";
 import { drawChart, destroyCharts } from "./chart.js";
 import { PLAYBOOK, VERDICTS } from "../coach.js";
+import { competitorView, borrowTally } from "../competitors.js";
 
 const APP_BOT = { buried: "bcf" };     // the tracker's name for an account -> this app's
 const appBot = key => APP_BOT[key] || key;
@@ -72,6 +73,30 @@ const text = (t, cls = "small pre-line") => (t ? el("p", { class: cls }, t) : nu
 const more = (title, ...body) => (body.some(Boolean) ? el("details", { class: "progress-more" }, el("summary", {}, title), ...body) : null);
 const list = items => (items?.length ? el("ul", { class: "small coach-list" }, items.map(s => el("li", {}, s))) : null);
 
+// Competitors: 3-5 channels in the same niche with strong views. Each review studies two of them and borrows
+// techniques that might work here (never their content); borrowed ideas then go through our own tests.
+function competitorsFor(x) {
+  const rows = competitorView(x.competitors);
+  const t = borrowTally(x.competitors);
+  const tally = t.total
+    ? `${t.total} idea${t.total === 1 ? "" : "s"} borrowed: ${t.won} worked here, ${t.testing} in a test, ${t.fix} fixed straight away, ${t.lost} didn't work, ${t.queued} queued`
+    : "Nothing borrowed yet. Each review studies two of them and borrows what might work here, never copying their videos.";
+  return el("div", { class: "competitors section-sm" },
+    el("div", { class: "panel-head" }, el("h3", {}, "Competitors we learn from"),
+      rows.length ? el("span", { class: "muted small" }, `${rows.length} watched`) : null),
+    el("p", { class: "muted small" }, rows.length ? tally
+      : "None yet. This account's next review picks 3 to 5 channels in the same niche that get strong views."),
+    rows.map(v => el("details", { class: "progress-more" },
+      el("summary", {}, v.name, el("span", { class: "muted small competitor-meta" }, v.meta)),
+      text(v.why),
+      v.url ? el("p", { class: "small" }, el("a", { href: v.url, target: "_blank", rel: "noopener noreferrer" }, "Open their channel")) : null,
+      v.does.length ? el("p", { class: "small section-sm" }, el("strong", {}, "What they do")) : null,
+      list(v.does),
+      v.borrowed.length ? el("p", { class: "small section-sm" }, el("strong", {}, "What we borrowed")) : null,
+      v.borrowed.length ? el("ul", { class: "small coach-list" }, v.borrowed.map(b =>
+        el("li", {}, el("span", { class: `sev sev-${b.tone}` }, b.label), " ", b.text))) : null)));
+}
+
 function autopilotFor(ap, a) {
   const x = ap?.accounts?.find(r => r.key === a.key);
   if (!x) return null;
@@ -86,11 +111,12 @@ function autopilotFor(ap, a) {
       `${x.reviews_done} review${x.reviews_done === 1 ? "" : "s"} so far`].join(" · ")),
     x.stage ? more("What it does at this stage", text(x.stage_rule)) : null,
     x.last_review ? el("p", { class: "small section-sm" }, el("strong", {}, `Last review ${day(x.last_review.date)}: `), x.last_review.summary)
-      : el("p", { class: "muted small section-sm" }, "Not reviewed yet. It will come round soon."),
+      : el("p", { class: "muted small section-sm" }, "Not reviewed yet. It gets reviewed once its test has enough data."),
     r ? more("What it saw and heard", text(r.watched)) : null,
     r ? more("The numbers it read", text(r.numbers)) : null,
     r ? more("What it changed", text(r.changes), text(r.tests)) : null,
     r?.next?.length ? more("What the next review will check", list(r.next)) : null,
+    competitorsFor(x),
     x.approaches?.length ? more("Approaches tried", list(x.approaches.map(p => `${day(p.date)} · ${p.family}: ${p.what}${p.outcome ? ` (${p.outcome})` : ""}`))) : null,
     x.ideas_open?.length ? more("Ideas waiting", list(x.ideas_open)) : null);
 }
@@ -115,7 +141,7 @@ function autopilotTop(ap, only) {
   const reviews = (ap.reviews || []).filter(r => !only || r.account === only);
   return el("section", { class: "panel section-sm" },
     el("div", { class: "panel-head" }, el("h2", {}, "Autopilot"), el("span", { class: "muted small" }, `updated ${ago(ap.generated)}`)),
-    el("p", { class: "small" }, "Every evening Claude checks all 7 bots, then reviews one account in depth: watches its videos like a viewer, reads the numbers, researches the niche, fixes faults and starts the next test."),
+    el("p", { class: "small" }, "Every evening Claude checks every bot. When an account's test has enough data, it reviews that account in depth: watches its videos like a viewer, reads the numbers, studies competitors in the same niche, keeps what worked and starts the next test."),
     ap.next?.name ? el("p", { class: "small section-sm" }, el("strong", {}, "Next review: "), `${ap.next.name}. ${ap.next.why}`) : null,
     reviews.length ? el("p", { class: "small section-sm" }, el("strong", {}, `Latest review (${day(reviews[0].date)}, ${BOT_NAMES[appBot(reviews[0].account)]}): `), reviews[0].summary) : null,
     health.length ? more(`Health check, ${ago(ap.health_at)}`, el("ul", { class: "feed" }, health.map(healthRow))) : null,

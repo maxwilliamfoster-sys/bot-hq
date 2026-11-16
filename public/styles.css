@@ -339,6 +339,8 @@ a.chip { display: inline-flex; align-items: center; }
 .progress-hint { margin: calc(-1 * var(--s2)) 0 var(--s3); }
 .progress-more { margin-top: var(--s2); }
 .progress-more summary { min-height: 44px; display: flex; align-items: center; font-weight: 600; cursor: pointer; }
+.competitors .progress-more summary { flex-wrap: wrap; align-content: center; }
+.competitor-meta { flex-basis: 100%; font-weight: 400; }
 .row.is-static { cursor: default; }
 .status-tag { margin-top: 0; white-space: nowrap; }
 /* Autopilot: the daily review's findings, per account and at the top of the Bots tab */
