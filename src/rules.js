@@ -107,7 +107,9 @@ export function heartbeatAlerts(bot, beat, now = new Date()) {
   const out = [];
   if (h > HEARTBEAT_LATE_H) {
     out.push({ bot, kind: "no_heartbeat", severity: "action", title: `${name}: no daily run for ${Math.round(h)}h`,
-      body: "The PC may be off, asleep or signed out, or the scheduled task stopped. Videos already scheduled on YouTube still go out.",
+      body: bot === "gary"
+        ? "The PC may be off, asleep or signed out, or the Windows task stopped. No new reels get made, and the 18:00 Instagram post needs the PC and the Claude app on."
+        : "The PC may be off, asleep or signed out, or the scheduled task stopped. Videos already scheduled on YouTube still go out.",
       data: { last: beat.at }, dedupe_key: `no_heartbeat:${bot}` });
   }
   if (beat.mode === "scheduled" && Number.isFinite(beat.waiting) && beat.waiting <= 1) {

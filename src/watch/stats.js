@@ -156,7 +156,7 @@ export async function pollStats(env, db, fetchFn = fetch, now = new Date(), { yo
 // posts come from the Buffer poller only: BuriedCasefiles' event carries a link or a
 // "Scheduled for..." note rather than the Buffer id, so it would add a ghost duplicate.
 export async function recordPostFromEvent(db, event, now = new Date()) {
-  if (event.kind !== "posted" || !YOUTUBE_BOTS.includes(event.bot)) return false;
+  if (event.kind !== "posted" || !(YOUTUBE_BOTS.includes(event.bot) || event.bot === "gary")) return false;
   const d = event.data || {};
   const external_id = d.external_id || d.buffer_id;
   if (!external_id) return false;
@@ -165,10 +165,28 @@ export async function recordPostFromEvent(db, event, now = new Date()) {
   const postedAt = Number.isFinite(sent) && sent <= now.getTime() ? new Date(sent) : now;
   return insertPost(db, {
     bot: event.bot,
-    platform: "youtube",
+    platform: event.bot === "gary" ? "instagram" : "youtube",
     external_id,
     title: String(event.title).replace(/^[^:]*posted: /i, "").slice(0, 120),
     posted_at: postedAt.toISOString(),
     url: d.video_url || null,
   });
+}
+
+// Views a PC bot read itself (Gary: Instagram insights through VaultBridge, which the Worker can't reach).
+// data.posts = [{external_id, views, likes, comments, shares, avg_watch_s, reach}]; unknown posts are skipped.
+const count = x => (Number.isFinite(x) && x >= 0 ? Math.round(x) : null);
+const secs = x => (Number.isFinite(x) && x >= 0 ? x : null);
+export async function recordStatsFromEvent(db, event, now = new Date()) {
+  const rows = Array.isArray(event.data?.posts) ? event.data.posts.slice(0, 50) : [];
+  const ids = rows.map(r => `${event.bot}:${r?.external_id}`).filter(id => !id.endsWith(":undefined"));
+  if (!ids.length) return 0;
+  const { results } = await db.prepare(`SELECT id FROM posts WHERE id IN (${ids.map(() => "?").join(",")})`).bind(...ids).all();
+  const known = new Set(results.map(r => r.id));
+  const at = now.toISOString();
+  const stmts = rows.filter(r => known.has(`${event.bot}:${r.external_id}`)).map(r => snapshotStmt(db, `${event.bot}:${r.external_id}`, at, {
+    views: count(r.views), likes: count(r.likes), comments: count(r.comments), shares: count(r.shares),
+    avg_watch_s: secs(r.avg_watch_s), reach: count(r.reach) }));
+  if (stmts.length) await db.batch(stmts);
+  return stmts.length;
 }

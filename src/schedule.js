@@ -1,6 +1,6 @@
 // Every-5-minute watcher (Worker cron). Each step is isolated: one that throws becomes a
 // single grouped "Bot HQ watcher error" warn and the rest still run.
-import { BOTS, BOT_IDS } from "./bots.js";
+import { BOTS, BOT_IDS, PC_BOTS } from "./bots.js";
 import { processEvent, openActionCount } from "./events.js";
 import { ukParts, valueAtAge, doingWell, postingGaps, stuckPosts, lowPosting, viewsFall, heartbeatAlerts } from "./rules.js";
 import { getState, setState } from "./settings.js";
@@ -230,7 +230,7 @@ async function checkGaps(env, db, now) {
 }
 
 async function checkHeartbeats(env, db, now) {
-  for (const bot of ["bodge"]) {
+  for (const bot of PC_BOTS) {
     let beat = null;
     try { beat = JSON.parse((await getState(db, `heartbeat:${bot}`)) || "null"); } catch { /* bad row: treat as none */ }
     for (const ev of heartbeatAlerts(bot, beat, now)) await processEvent(env, ev, now);

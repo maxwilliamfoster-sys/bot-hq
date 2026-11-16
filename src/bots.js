@@ -11,10 +11,15 @@ export const BOTS = {
   perc: { name: "Perc Cruncher", repo: "giftok-bot", note: "giftok_bot", planned: 2 },
   // Runs on Max's PC (Blender needs the GPU), so it has no GitHub runs; it checks in with a heartbeat.
   bodge: { name: "Bodge Delivers", repo: "bodge-delivers", dir: "what-if-shorts", note: "what_if_shorts", planned: 1 },
+  // Instagram Reels made on Max's PC (GPU), posted at 18:00 by a Claude task. It sends its own posts, views
+  // (kind "stats") and a heartbeat, because only the PC can reach the Instagram token (VaultBridge).
+  gary: { name: "Gary the Bin Fox", repo: "gary-bin-fox", note: "gary_bin_fox", planned: 1, platform: "instagram" },
   system: { name: "Bot HQ", repo: "bot-hq", note: "bot_hq", planned: 0 },
 };
 
-export const BOT_IDS = ["chess", "bcf", "escape", "space", "eagle", "perc", "bodge"];
+export const BOT_IDS = ["chess", "bcf", "escape", "space", "eagle", "perc", "bodge", "gary"];
+// Bots that run on Max's PC: no GitHub Actions; they check in with a heartbeat and report their own posts.
+export const PC_BOTS = ["bodge", "gary"];
 
 export function localRepoPath(bot) {
   return bot === "system"

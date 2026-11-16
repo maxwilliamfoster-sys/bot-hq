@@ -71,7 +71,7 @@ test("every bot has a playbook with ranked steps and manual checks", () => {
   for (const bot of BOT_IDS) {
     assert.ok(PLAYBOOK[bot], bot);
     assert.ok(PLAYBOOK[bot].steps.length >= 3 && PLAYBOOK[bot].checks.length >= 1, bot);
-    assert.match(PLAYBOOK[bot].platform, /^(tiktok|youtube)$/);
+    assert.match(PLAYBOOK[bot].platform, /^(tiktok|youtube|instagram)$/);
   }
 });
 

@@ -151,6 +151,17 @@ export const PLAYBOOK = {
     ],
     checks: ["Each post for a 'sound removed' or muted notice.", "Each post's Analytics for a 'not eligible for For You' notice.", "On the 4 posts from 6 to 10 Nov, use 'Change sound' if any is muted: they used unlicensed songs."],
   },
+  gary: {
+    platform: "instagram",
+    risk: "Too new to judge. Instagram's Original Content rules hold back reposted or look-alike reels, and the format follows a trend, so every reel must stay clearly our own.",
+    steps: [
+      "Keep every reel original: our own character, voice, jokes and sounds, never clips from the trend it follows.",
+      "Vary what Gary does with his hands and where he is: no setting or prop twice in 7 reels.",
+      "Keep the AI label on every reel (post.py sends is_ai_generated).",
+      "Stay at 1 a day until 20 reels are 3 days old, then compare average watch time and shares.",
+    ],
+    checks: ["Instagram app > Professional dashboard > Account status: any recommendation or originality notice."],
+  },
   bodge: {
     platform: "youtube",
     risk: "Too new to judge. One premise repeated daily is close to what YouTube calls templated content.",

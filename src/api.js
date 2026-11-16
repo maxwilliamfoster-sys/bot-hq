@@ -3,8 +3,8 @@ import { login, logout, hasSession, bearerOk, sessionCookie, clearCookie } from 
 import { getSettings, putSettings, getState, setState } from "./settings.js";
 import { saveSubscription, removeSubscription, pushAll } from "./push.js";
 import { validateEvent, processEvent } from "./events.js";
-import { BOTS, clock } from "./bots.js";
-import { recordPostFromEvent } from "./watch/stats.js";
+import { BOTS, PC_BOTS, clock } from "./bots.js";
+import { recordPostFromEvent, recordStatsFromEvent } from "./watch/stats.js";
 import { ingest } from "./ingest.js";
 import { liveData, botsData } from "./views.js";
 import { runGraph, validSaved, PRESETS } from "./query.js";
@@ -74,6 +74,10 @@ export const routes = [
     if (v.event.kind === "heartbeat") {          // "still running" check-in: stored, never shown in the inbox
       await setState(env.DB, `heartbeat:${v.event.bot}`, JSON.stringify({ at: now.toISOString(), ...v.event.data }));
       return json({ ok: true });
+    }
+    if (v.event.kind === "stats") {              // views a PC bot read itself: snapshots only, never the inbox
+      if (!PC_BOTS.includes(v.event.bot)) return json({ error: "bad_bot" }, 400);
+      return json({ ok: true, stored: await recordStatsFromEvent(env.DB, v.event, now) });
     }
     await recordPostFromEvent(env.DB, v.event, now);
     const r = await processEvent(env, v.event, now);

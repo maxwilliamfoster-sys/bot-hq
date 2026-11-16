@@ -27,6 +27,7 @@
   --space: #B5478F;
   --eagle: #8A6A2F;
   --perc: #C2410C;
+  --gary: #4D8B31;
   --system: #7A6AD8;
   --focus: #2F5BEA;
 
@@ -62,6 +63,7 @@
     --space: #F08CC8;
     --eagle: #D8B878;
     --perc: #FB8A5C;
+    --gary: #8BD16A;
     --system: #A99BFF;
     --focus: #6F8FFF;
   }
@@ -112,6 +114,7 @@ a { color: inherit; }
 [data-bot="space"] { --bot: var(--space); }
 [data-bot="eagle"] { --bot: var(--eagle); }
 [data-bot="perc"] { --bot: var(--perc); }
+[data-bot="gary"] { --bot: var(--gary); }
 [data-bot="system"] { --bot: var(--system); }
 .bot-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
 .bot-tag::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--bot, var(--muted)); }
