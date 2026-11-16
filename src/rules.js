@@ -120,6 +120,35 @@ export function heartbeatAlerts(bot, beat, now = new Date()) {
   return out;
 }
 
+// The evening autopilot (Claude scheduled task on Max's PC, analytics-check/autopilot) checks in as bot "system":
+// {at, phase: started | finished | nothing_due | failed, account?, detail?}. Max asked to be told whenever the
+// automatic review doesn't work, for any reason, so: not run for a day+, stuck mid-run, or a reported failure.
+export const AUTOPILOT_LATE_H = 27;    // fires 18:30 daily; a missed evening shows up by about 21:30 the next day
+export const AUTOPILOT_STUCK_H = 5;    // two deep reviews take up to about 3 hours
+const AUTOPILOT_WHY = "Usually the PC was off or asleep, the Claude app was closed, or the Claude usage limit was reached.";
+export function autopilotAlerts(beat, now = new Date()) {
+  if (!beat || !beat.at) return [];     // never checked in: not connected yet
+  const h = (now.getTime() - Date.parse(beat.at)) / 3600e3;
+  const at = String(beat.at);
+  const where = beat.account ? ` (reviewing ${beat.account})` : "";
+  if (beat.phase === "failed") {
+    return [{ bot: "system", kind: "autopilot_failed", severity: "action", title: `Autopilot run failed${where}`,
+      body: `It reported: ${String(beat.detail || "no reason given").slice(0, 600)}. The account stays due and the next evening's run tries again.`,
+      data: { last: at, phase: beat.phase }, dedupe_key: `autopilot_failed:${at}` }];
+  }
+  if (beat.phase === "started" && h > AUTOPILOT_STUCK_H) {
+    return [{ bot: "system", kind: "autopilot_stuck", severity: "action", title: `Autopilot run stopped half way${where}`,
+      body: `It started ${Math.round(h)}h ago and never finished. It may be waiting on a permission prompt in the Claude app, hit the usage limit, or crashed. Open Scheduled > Bot autopilot in the Claude app to see the run.`,
+      data: { last: at, phase: beat.phase }, dedupe_key: `autopilot_stuck:${at}` }];
+  }
+  if (h > AUTOPILOT_LATE_H) {
+    return [{ bot: "system", kind: "autopilot_missed", severity: "action", title: `Autopilot hasn't run for ${Math.round(h)}h`,
+      body: `The evening review didn't happen. ${AUTOPILOT_WHY} It catches up the next time the PC and the Claude app are on.`,
+      data: { last: at, phase: beat.phase }, dedupe_key: `autopilot_missed:${at}` }];
+  }
+  return [];
+}
+
 // Posting gaps, worded like chess-puzzle-automation needs_you.check_posting.
 // lastPostAt: {chess, bcf} ISO or null; escapePending: scheduled Buffer posts, or null if unknown.
 // ctx says whether the app can actually see each bot's posts; without that, "no recent post" may just

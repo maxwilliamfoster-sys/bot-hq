@@ -2,7 +2,7 @@
 // single grouped "Bot HQ watcher error" warn and the rest still run.
 import { BOTS, BOT_IDS, PC_BOTS } from "./bots.js";
 import { processEvent, openActionCount } from "./events.js";
-import { ukParts, valueAtAge, doingWell, postingGaps, stuckPosts, lowPosting, viewsFall, heartbeatAlerts } from "./rules.js";
+import { ukParts, valueAtAge, doingWell, postingGaps, stuckPosts, lowPosting, viewsFall, heartbeatAlerts, autopilotAlerts } from "./rules.js";
 import { getState, setState } from "./settings.js";
 import { checkRuns } from "./watch/runs.js";
 import { pollStats } from "./watch/stats.js";
@@ -237,6 +237,13 @@ async function checkHeartbeats(env, db, now) {
   }
 }
 
+// The evening Claude autopilot checks in as bot "system"; tell Max if it missed a day, stalled or failed.
+async function checkAutopilot(env, db, now) {
+  let beat = null;
+  try { beat = JSON.parse((await getState(db, "heartbeat:system")) || "null"); } catch { /* bad row: treat as none */ }
+  for (const ev of autopilotAlerts(beat, now)) await processEvent(env, ev, now);
+}
+
 async function thinSnapshots(db, now) {
   const { results } = await db.prepare(
     `SELECT s.id, s.post_id, s.at, p.posted_at FROM snapshots s JOIN posts p ON p.id = s.post_id
@@ -304,6 +311,7 @@ export async function runSchedule(event, env, ctx, fetchFn = fetch, now = new Da
     await step(env, now, "stuck posts", () => alertStuck(env, [...(r?.queued || []), ...(z?.queued || [])], now));
     await step(env, now, "posting gaps", () => checkGaps(env, db, now));
     await step(env, now, "PC heartbeats", () => checkHeartbeats(env, db, now));
+    await step(env, now, "autopilot check-in", () => checkAutopilot(env, db, now));
     await step(env, now, "gate logs", () => refreshGate(env, db, fetchFn, now));
     const ukH = ukParts(now).hhmm;
     if (ukH >= "08:00" && ukH < "21:00") await step(env, now, "radar reminder", () => weeklyRadarCheck(env, db, fetchFn, now));

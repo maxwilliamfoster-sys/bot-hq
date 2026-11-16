@@ -30,7 +30,11 @@ export function validateEvent(obj) {
 }
 
 // A reminder has no fix prompt: its prompt is the Radar tab's.
-const promptFor = ev => ev.kind === "coach"
+const AUTOPILOT_PROMPT = "The evening Bot autopilot review (Claude scheduled task bot-autopilot, analytics-check/autopilot) didn't work. "
+  + "Check its recent runs (scheduled tasks list_task_runs for bot-autopilot, then that run's events), find why it missed, stalled or failed, "
+  + "fix the cause (kit, routine, permissions or the task), then run it again with run_scheduled_task and confirm it finishes.";
+const promptFor = ev => ev.kind.startsWith("autopilot_") ? AUTOPILOT_PROMPT
+  : ev.kind === "coach"
   ? buildCoachPrompt({ bot: ev.bot, code: ev.data.code, numbers: ev.data.numbers || {}, verdicts: ev.data.verdicts || null })
   : ev.kind !== "radar_weekly" && (ev.severity === "action" || ev.severity === "warn")
   ? buildFixPrompt({
