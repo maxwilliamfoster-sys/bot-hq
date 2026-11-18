@@ -28,6 +28,7 @@ function toggleFor(event) {
 // "Only when I am needed" (Max, 2026-11-10): the bots should run themselves, so the phone stays quiet unless
 // something broke (severity action) or it is time to go back to Claude (kind coach). Everything else is in the Inbox.
 export function shouldPush(event, settings, date) {
+  if (BOTS[event.bot]?.stopped) return false;         // Max stopped that account: never buzz his phone about it
   if (event.kind === "digest") return false;          // in the Inbox only; the 07:30 summary is the morning push
   if (event.kind === "coach") return event.severity === "action" ? !!settings.notify_action : !inQuietHours(date, settings);
   if (settings.notify_only_needed && event.severity !== "action") return false;
@@ -179,6 +180,7 @@ export function postingGaps(lastPostAt, escapePending, now = new Date(), ctx = {
       "Normally 3 a day. Check the BuriedCasefiles video runs and the inbox for blocked videos.");
   }
   const queueGap = (bot, name, tool, feedAt, nextDue, limitH, normally = "3 a day") => {
+    if (BOTS[bot]?.stopped) return;                                                       // not posting on purpose
     if (!lastPostAt[bot] || !feedAt || hoursSince(feedAt) >= BCF_FEED_FRESH_H) return;   // can't see it: unknown, not a gap
     const until = nextDue ? -hoursSince(nextDue) : null;
     if (until !== null && until > 0 && until < BCF_QUEUE_COVERS_H) return;

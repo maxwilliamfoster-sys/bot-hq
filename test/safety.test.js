@@ -33,12 +33,9 @@ test("Eagle Eyes is one of the watched bots", () => {
   assert.ok(BOT_IDS.includes("eagle"));
 });
 
-test("Eagle Eyes alerts when nothing has posted for 20h and nothing is queued", () => {
-  const keys = ctx2 => postingGaps({ eagle: ago(21) }, null, NOW, ctx2).map(e => e.dedupe_key);
-  assert.deepEqual(keys({ eagleFeedAt: ago(1) }), ["no_posts:eagle"]);
-  assert.deepEqual(keys({ eagleFeedAt: ago(1), eagleNextDue: new Date(NOW.getTime() + 3600e3).toISOString() }), []);
-  assert.deepEqual(keys({ eagleFeedAt: ago(5) }), []);
-  assert.deepEqual(postingGaps({ eagle: ago(18) }, null, NOW, { eagleFeedAt: ago(1) }), []);
+test("Eagle Eyes is stopped (18 Nov 2026): no 'nothing posted' alert however long it's quiet", () => {
+  assert.deepEqual(postingGaps({ eagle: ago(21) }, null, NOW, { eagleFeedAt: ago(1) }), []);
+  assert.deepEqual(postingGaps({ eagle: ago(500) }, null, NOW, { eagleFeedAt: ago(1) }), []);
 });
 
 test("parseZernioPosts reads status, due time, link and error", () => {

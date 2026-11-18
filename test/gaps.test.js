@@ -21,3 +21,11 @@ test("Space Edits stays quiet when the Buffer feed is stale", () => {
 test("Space Edits stays quiet when it posted recently", () => {
   assert.deepEqual(keys({ space: hoursAgo(10) }, { bcfFeedAt: hoursAgo(1) }), []);
 });
+
+test("a stopped bot (Eagle Eyes, 18 Nov 2026) gets no 'no posts' alert and never pushes", async () => {
+  const { shouldPush } = await import("../src/rules.js");
+  assert.deepEqual(keys({ eagle: hoursAgo(72) }, { eagleFeedAt: hoursAgo(1) }), []);
+  const on = { notify_action: 1, notify_only_needed: 0 };
+  assert.equal(shouldPush({ bot: "eagle", kind: "run_failed", severity: "action" }, on, now), false);
+  assert.equal(shouldPush({ bot: "space", kind: "run_failed", severity: "action" }, on, now), true);
+});
