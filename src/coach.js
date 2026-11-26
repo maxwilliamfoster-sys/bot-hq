@@ -151,6 +151,16 @@ export const PLAYBOOK = {
     ],
     checks: ["Each post for a 'sound removed' or muted notice.", "Each post's Analytics for a 'not eligible for For You' notice.", "On the 4 posts from 6 to 10 Nov, use 'Change sound' if any is muted: they used unlicensed songs."],
   },
+  niche: {
+    platform: "tiktok",
+    risk: "Music edits live or die on the first 1-2 seconds, and a baked-in track can be muted or the post held back if the rights holder claims it.",
+    steps: [
+      "Lead with the most recognisable moment and the drop inside the first second; no slow intro.",
+      "Keep every track either TikTok's own licensed sound (CML) or a release from a producer on the allowlist.",
+      "Full-screen footage with a big readable caption; vary the clips so posts never look identical.",
+    ],
+    checks: ["Each post for a 'sound removed' or muted notice.", "Each post's Analytics: For You share and any 'not eligible' notice."],
+  },
   gary: {
     platform: "instagram",
     risk: "Too new to judge. Instagram's Original Content rules hold back reposted or look-alike reels, and the format follows a trend, so every reel must stay clearly our own.",

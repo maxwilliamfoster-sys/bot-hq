@@ -44,6 +44,15 @@ test("Zernio posts are split by TikTok account; unknown accounts are ignored", (
   assert.deepEqual(parsed.map(p => [p.id, p.bot]), [["a", "perc"], ["b", "eagle"], ["d", "eagle"]]);
 });
 
+test("Niche House posts (@iluvgarry, formerly @ihatepercys) are tracked as bot niche", () => {
+  const parsed = parseZernioPosts({ posts: [
+    post("n1", "published", ago(1), "iluvgarry"),
+    post("n2", "published", ago(1), "@IHatePercys"),
+  ] });
+  assert.deepEqual(parsed.map(p => [p.id, p.bot]), [["n1", "niche"], ["n2", "niche"]]);
+  assert.ok(BOT_IDS.includes("niche") && BOTS.niche.planned === 1);
+});
+
 test("hourly poll files each account's posts, queue and views under the right bot", async () => {
   const e = await env({ ZERNIO_API_KEY: "k" });
   const fetchFn = zernio({

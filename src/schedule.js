@@ -108,7 +108,7 @@ async function checkDoingWell(env, db, now, sweep) {
 async function announceNewPosts(env, newPosts, now) {
   for (const p of newPosts) {
     // Escape Cup's own "scheduled" message isn't the publish; Buffer's sentAt is. Others announce themselves.
-    if (!["escape", "space", "eagle", "perc"].includes(p.bot)) continue;
+    if (!["escape", "space", "eagle", "perc", "niche"].includes(p.bot)) continue;
     if (now.getTime() - Date.parse(p.posted_at) > NEW_POST_WINDOW_H * H) continue;   // first sync: history, not news
     await processEvent(env, {
       bot: p.bot, kind: "posted", severity: "info", title: `${BOTS[p.bot].name} posted: ${p.title}`.slice(0, 160),

@@ -12,8 +12,9 @@ const FAILED = new Set(["failed", "partial"]);
 const UNSENT = new Set(["scheduled", "publishing"]);
 // TikTok username on Zernio -> bot. A post with no username is Eagle Eyes (the only account until 6 Nov 2026);
 // any other account isn't ours to watch.
-export const ZERNIO_ACCOUNTS = { "eagle.eyez.levelz": "eagle", "perc.cruncher": "perc" };
-export const ZERNIO_BOTS = ["eagle", "perc"];
+export const ZERNIO_ACCOUNTS = { "eagle.eyez.levelz": "eagle", "perc.cruncher": "perc",
+  "iluvgarry": "niche", "ihatepercys": "niche" };   // niche house: renamed @ihatepercys -> @iluvgarry
+export const ZERNIO_BOTS = ["eagle", "perc", "niche"];
 
 async function zernioJson(env, fetchFn, path) {
   const res = await fetchFn(`${API}${path}`, { headers: { authorization: `Bearer ${env.ZERNIO_API_KEY}` } });

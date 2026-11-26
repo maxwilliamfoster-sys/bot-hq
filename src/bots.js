@@ -16,10 +16,12 @@ export const BOTS = {
   // Instagram Reels made on Max's PC (GPU), posted at 18:00 by a Claude task. It sends its own posts, views
   // (kind "stats") and a heartbeat, because only the PC can reach the Instagram token (VaultBridge).
   gary: { name: "Gary the Bin Fox", repo: "gary-bin-fox", note: "gary_bin_fox", planned: 1, platform: "instagram" },
+  // Old 10k TikTok @iluvgarry: one niche house edit a day through Zernio (same workspace as Perc), GitHub Actions.
+  niche: { name: "Niche House", repo: "niche-house-edits", note: "niche_house_edits", planned: 1 },
   system: { name: "Bot HQ", repo: "bot-hq", note: "bot_hq", planned: 0 },
 };
 
-export const BOT_IDS = ["chess", "bcf", "escape", "space", "eagle", "perc", "bodge", "gary"];
+export const BOT_IDS = ["chess", "bcf", "escape", "space", "eagle", "perc", "bodge", "gary", "niche"];
 // Bots that run on Max's PC: no GitHub Actions; they check in with a heartbeat and report their own posts.
 export const PC_BOTS = ["bodge", "gary"];
 
