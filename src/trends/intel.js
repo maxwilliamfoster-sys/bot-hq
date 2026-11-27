@@ -107,7 +107,7 @@ export async function loadHistory(db) {
 const toSet = s => new Set(s ? s.split(" ") : []);
 
 // Posts whose title has the topic's words (topicJoins' rule, through the index: plurals and possessives count).
-function matchingPosts(h, topicWords) {
+export function matchingPosts(h, topicWords) {
   const k = topicWords.size;
   const need = k <= 3 ? k : Math.ceil((3 * k) / 4);
   const index = h.index || {};

@@ -243,6 +243,16 @@ function ideasBlock(o) {
         el("ul", { class: "coach-list" }, i.risks.map(r => el("li", {}, r)))) : null))));
 }
 
+// How this account's own videos on the topic did (Bot HQ's own view counts, last 180 days).
+function topicVideosBlock(o) {
+  const v = Array.isArray(o.topic_videos) ? o.topic_videos.filter(x => Number.isFinite(x.ratio)) : [];
+  if (!v.length) return null;
+  const word = r => (r >= 1.5 ? "well above usual" : r >= 0.8 ? "about usual" : "below usual");
+  return el("section", { class: "section-sm" }, el("h4", {}, "This account's videos on this topic"),
+    el("p", { class: "muted small" }, "Views against the account's usual (1.0x), newest first."),
+    el("ul", { class: "coach-list" }, v.map(x => el("li", {}, `${x.date}: ${x.ratio}x, ${word(x.ratio)}`))));
+}
+
 function statusLine(o) {
   if (o.status === "approved" && o.handed_at) return `Approved, in the idea backlog since ${ago(o.handed_at)}`;
   if (o.status === "approved") return "Approved, goes to the next evening review";
@@ -287,6 +297,7 @@ function opportunity(o, weights, done) {
     decision(o, done),
     o.class === "rejected" ? null : breakdown(o, weights),
     gateBlock(o),
+    topicVideosBlock(o),
     ideasBlock(o));
 }
 

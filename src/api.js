@@ -15,6 +15,7 @@ import { ingestBatch, manualAdd, decide, listOpportunities, trendDetail, overvie
 import { getProfile } from "./trends/profiles.js";
 import { collectorContext } from "./trends/intel.js";
 import { queue, markHanded, addIdeas, setOutcome } from "./trends/pipeline.js";
+import { videoContext } from "./trends/videos.js";
 
 const MAX_BODY = 512 * 1024;
 
@@ -183,6 +184,11 @@ export const routes = [
     const account = url.searchParams.get("account");
     if (account && !getProfile(account)) return json({ error: "bad_account" }, 400);
     return json(await queue(env.DB, account, clock(env)));
+  }],
+  ["GET", "/api/trends/videos", "bot", async ({ env, url }) => {
+    const { status = 200, ...r } = await videoContext(env.DB, url.searchParams.get("account"), clock(env),
+      url.searchParams.get("days") || 28);
+    return json(r, status);
   }],
   ["POST", /^\/api\/trends\/opportunities\/(\d+)\/handed$/, "bot", async ({ env, params }) => {
     const { status, ...r } = await markHanded(env.DB, params[0], clock(env));

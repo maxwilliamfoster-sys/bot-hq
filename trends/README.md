@@ -32,6 +32,13 @@ GitHub Action "Trend collector" (daily 05:30 UTC)            PC, every evening r
   Trends tab on the phone (src/ui/trends.js): Max approves or rejects
 ```
 
+**Judging tests fairly:** `kit.py trends KEY` also reads `GET /api/trends/videos?account=KEY` (bot token,
+`src/trends/videos.js`). That lists the account's videos from the last 28 days (up to 60 with `&days=`), each with
+its test arm (`variant`), views against the account's usual, and any trend for this account that was live when it
+went out (from 2 days before Bot HQ first saw the trend to 2 days after it was last seen). The brief then shows each
+arm's median with and without those videos. ROUTINE step 3 says what to do when a win only comes from them. A
+trend's page in the app also lists how the account's own videos on that topic did.
+
 Max's decision is the only way a trend reaches an account's backlog. Nothing posts, edits a video or changes a bot
 on its own.
 

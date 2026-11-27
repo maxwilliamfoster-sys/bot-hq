@@ -5,7 +5,7 @@ import { nicheGate, gateText } from "./gate.js";
 import { DEFAULT_WEIGHTS, COMPONENTS, validWeights, scoreOpportunity, evidenceLabel } from "./score.js";
 import { dedupeKey } from "./dedupe.js";
 import { normalise, phraseIndex, hasMixedScript, distinctWords } from "./text.js";
-import { flagsFor, lifecycle, loadHistory, historyFor } from "./intel.js";
+import { flagsFor, lifecycle, loadHistory, historyFor, matchingPosts } from "./intel.js";
 
 // Free plan: 10 ms CPU per request. The gate reads the stored text (TEXT_CAP) plus the full incoming text, so
 // the batch is small. Measured worst case (every field at its limit, 8 accounts): 8 candidates 6.4-8.8 ms, so 5.
@@ -337,6 +337,11 @@ export async function trendDetail(db, id, account) {
       ideas.get(r.opportunity_id).push({ created_at: r.created_at, ...JSON.parse(r.idea_json) });
     }
   }
+  // How this account's own videos on the topic did (last 180 days, from the daily history index), newest first.
+  const history = opps.results.length ? await loadHistory(db) : new Map();
+  const topicWords = distinctWords(t.name);
+  const topicVideos = account => (matchingPosts(history.get(account) || {}, topicWords) || [])
+    .slice().sort((a, b) => (a[1] < b[1] ? 1 : -1)).slice(0, 10).map(([ratio, date]) => ({ ratio, date }));
   return {
     trend: { ...t, flags: parseFlags(t.flags) }, signals: signals.results, snapshots: snapshots.results,
     opportunities: opps.results.map(o => {
@@ -345,6 +350,7 @@ export async function trendDetail(db, id, account) {
         ...itemOut(o), niche: p?.niche || null, locked_rules: p?.locked_rules || [],
         gate: JSON.parse(o.gate_json || "{}"), components: JSON.parse(o.components_json || "{}"),
         profile_changed: !!p && profileHash(p) !== o.profile_hash, ideas: ideas.get(o.id) || [],
+        topic_videos: topicWords.size >= 2 ? topicVideos(o.account) : [],
       };
     }),
   };
