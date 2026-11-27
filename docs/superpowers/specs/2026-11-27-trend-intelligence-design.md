@@ -1,0 +1,148 @@
+# Trend Intelligence for Bot HQ: audit and implementation plan
+
+Status: **proposal, not built.** Nothing in any project has been changed. Written 2026-11-27.
+
+---
+
+## Stage 1: Audit of what already exists
+
+### Where things are
+| Piece | Location | What it is |
+|---|---|---|
+| **Bot HQ** (root) | `C:/Users/maxwi/Projects/Apps/bot-hq` | Cloudflare Worker + D1 (SQLite) on the free plan. Public GitHub repo `bot-hq`. Vanilla JS phone web app (`src/ui/`, bundled by esbuild), API in `src/api.js`, 205 `node --test` tests. Deploys from this PC with `npm run deploy`. |
+| **Account and niche config** | `Content-Bots/analytics-check/autopilot/accounts.json` | Source of truth for every account's `niche`, `audience`, `platform`, `metric`, `cap`, `stopped`. Bot HQ has its own short list in `src/bots.js` (ids, repos, planned posts a day), with no niche text. |
+| **Experiment system** | `analytics-check/autopilot/` | The evening Claude routine (`ROUTINE.md`, hard limits in `RULES.md`, `kit.py`, `runner.py`). Per account `state/KEY.json` holds `reviews`, `ideas` (ranked backlog: idea, evidence, expected, status), `research` (finding + sources + date), `approaches` (9 families with outcomes) and `competitors` (3-5 watchlist with what they do and ideas borrowed). Per-bot loops (`levers.json`, `EXPERIMENTS.md`, `growth-lab/experiment_loop.py`) run the actual A/B tests. |
+| **Analytics store** | Bot HQ D1: `posts`, `snapshots`, `milestones` (views at 1/6/24/72 h), `account`, `events` | Filled by Worker watchers (YouTube, Buffer, Zernio, every 5 min to hourly), PC bots' `stats` events and the nightly backfill. `analytics-check/build_tracker.py` posts the tracker and autopilot block to `/api/tracker`. |
+| **Learning memory** | Brain note per account, `## Autopilot` section | `Proven here` / `Didn't work here` / `Don't undo` / `Review log`. Lessons are per account and never generalised. |
+| **Schedulers (four, all existing)** | Worker cron `*/5 * * * *` (`src/schedule.js`); GitHub Actions per repo (Bot HQ `ingest.yml` nightly 03:15 UTC); Windows task "Bot autopilot" (`runner.py check`, hourly); Claude desktop task `bot-autopilot` (18:30) | No new scheduler is needed. |
+| **An existing trend tool** | `Content-Bots/shorts-radar` | Chess only. Daily GitHub Action: channel RSS (no quota), yt-dlp discovery, YouTube Data API capped at 700 units a day, outlier scoring against each channel's own median, and an "LLM may not produce numbers" rule. Bot HQ's Radar tab reads `insights/chess.json`. |
+| **Dashboard** | Tabs: Inbox, Live, Graphs, Radar, Bots (Progress/Runs), Settings | Access code sign-in (`src/auth.js`), bot bearer token for write routes, CSP `style-src 'self'` (no inline styles). |
+
+### Accounts and their niches (read from accounts.json, will never be changed)
+| Key | Platform | Niche (locked) | Geo |
+|---|---|---|---|
+| chess | YouTube Shorts | Chess find-the-move puzzles, narrated | Global English |
+| buried (bcf) | TikTok | True crime, narrated case files, mostly UK cases | UK |
+| escape | TikTok | Physics sim: country flag balls escaping rings, 32-nation cup | UK (~91%) |
+| space | TikTok | Real telescope footage, named targets, narrated | Global English |
+| perc | TikTok | Relatable GIF memes cut to a beat | UK |
+| bodge | YouTube Shorts | Animated "what if" shrink/grow/speed episodes | Global English |
+| gary | Instagram Reels | Whispering bin fox, "send this to your..." (format locked by you, 20 Nov) | UK |
+| niche | TikTok | World Cup football clips + niche house track | UK |
+| eagle | TikTok | **Stopped 18 Nov**: gets no trend research until restarted |
+
+### Constraints the audit found
+- **Worker free plan:** 50 outside requests and 10 ms CPU per run, and D1 hard-fails after the daily free row reads. So heavy collection can't run in the Worker. It has to run in Python elsewhere and post results in batches, the same way `ingest/backfill.py` does.
+- **Claude usage:** the autopilot has already failed twice on the Pro 5-hour limit. AI writing has to stay small and capped.
+- **The free Groq model is already shared and tight** (Brain note `bot_shared_ai_quota`). Also, free Gemini may use inputs for training. I won't use either for trend analysis.
+- **The Bot HQ repo is public:** keys go in GitHub or Worker secrets only.
+- **Gates that must stay:** the true-crime legal rules ("accused/alleged", court outcomes), Niche House's music rules, Gary's locked format, one main test per account, and `RULES.md`.
+
+### Source access, tested today (2026-11-27)
+| Source | Result | Decision |
+|---|---|---|
+| Google Trends daily RSS `trends.google.com/trending/rss?geo=GB` | **200**: about 20 daily searches with approximate traffic and linked news | **Automate.** It's only the top daily searches per country (mostly news and sport). Explore and related queries have no free official API, and the 2025 Trends API alpha needs an application, so those get one-click links for manual research. |
+| Wikipedia pageviews API (Wikimedia REST) | **200**, free, no key, daily history | **Automate (added).** Gives growth against history for named things: cases, telescope targets, players, chess events. |
+| Google News RSS search (`hl=en-GB&gl=GB`) | **200** | **Automate**, plus a hand-picked list of reliable feeds per niche and a blocklist of content farms. |
+| YouTube Data API v3 | Free 10,000 units a day per Google Cloud project | **Automate** with a new key from a **separate free Cloud project**, so it can't eat the chess uploads' quota. Channel RSS (0 units) for competitors. Ledger cap 3,000 units a day, cache, and growth = view change per hour between snapshots, never total views. |
+| Reddit Data API | Unauthenticated JSON **403**. Since Nov 2025, new API access needs Reddit's approval under its Responsible Builder Policy, and reports say new public API requests closed 31 Oct 2026 and the free tier is going paid. | **Not built.** Instead: subreddit links per account and an "add source URL" box. Revisit only if Reddit grants you access. |
+| TikTok Creative Center | No official API. Anonymous data routes are locked (reported by third parties), and the request failed from here. | **Manual workflow.** Per-account links (country GB, industry filter), and a paste or import form. Entries are labelled "manual, as of DATE" and are never shown as refreshed. |
+| Instagram trends | Hashtag search needs Meta app review | **None.** Gary relies on Google Trends GB, news, seasonal dates and manual notes. |
+
+---
+
+## Stage 2: Design
+
+### Data flow
+```
+GitHub Action "trends.yml" (Bot HQ repo, daily 05:30 UTC, free minutes)
+  trends/collect.py  -> source adapters -> raw signals (cached, quota ledger)
+  trends/analyse.py  -> cluster + dedupe -> trend candidates + per-account component scores
+        |  POST /api/trends/batch (bot token, batches of 50)
+        v
+Bot HQ Worker (authoritative)
+  niche gate (JS, the only write path) -> score + class -> lifecycle -> D1 tables
+  cron (existing 5-min tick, hourly step): expire stale trends, push "high-priority waiting"
+        |  GET /api/trends/... (session)            |  GET /api/trends/queue (bot token)
+        v                                           v
+  Trends tab (phone app)                Evening autopilot (existing Claude run)
+  approve / reject / add manual         kit.py trends KEY: writes report + 3 ideas
+        |  approve                                  for at most 3 high-priority items a run
+        v
+  approved -> autopilot state/KEY.json "ideas" (status queued, trend_id)
+           -> autopilot's normal rules decide when it becomes a test (one main test)
+           -> test result in bothq_payload -> Worker links outcome to the trend
+```
+
+### Niche enforcement (built into the code, not just the prompt)
+1. **Profiles are read-only copies.** `trends/profiles/KEY.json` holds the trend profile: anchor terms (must match), related terms, exclusion terms, Wikipedia seed articles, feeds, YouTube queries, geo and language. The `niche` and `audience` text is copied from accounts.json with a hash. The trend system has **no code path that writes accounts.json or the bots' configs**, and a test checks that.
+2. **One gate, on the server.** Every write (collector batch, manual add, Claude's analysis, approval) goes through `nicheGate(candidate, profile)` in the Worker. It passes only if the evidence text hits at least one anchor term, has no exclusion hits, and the candidate's relevance component is at least the threshold (default 0.6 of 25). A candidate that fails is stored as `rejected` with the reason and is **never** scored into a class, whatever its other numbers.
+3. **Per-account evaluation.** A candidate found through account A's queries is gated separately for every other active account. It's assigned to B only if B's own gate passes.
+4. **Claude can only lower.** In the analysis step Claude can reject or lower relevance, never raise it past the gate. Ideas that don't cite real evidence ids are refused by the API.
+5. **Stopped accounts** (eagle) have no active profile and get nothing.
+6. **Tests:** every cross-niche pair (for example a football trend to chess, or a gaming trend to true crime) must be refused, manual adds included. The tests also check that Gary's and Niche House's locked rules show up as risks on their ideas.
+
+### Scoring (weights configurable in the `settings` table)
+Niche relevance 25 (gate) · growth momentum 20 · audience interest 15 · content performance evidence 15 · competition/saturation 10 · timeliness 10 · originality 5.
+- Every component is computed in Python from stored numbers. The LLM never produces a number (the same rule as shorts-radar).
+- Momentum compares against history: Wikipedia views over the last 7 days against the 30-day median, YouTube view change per hour against each channel's own median, and the number of days a term has appeared in Google Trends.
+- **History fit:** up to ±3 inside audience interest, taken from the account's `approaches` outcomes and `Proven here`. It fades over time, and one failed test is never enough to block a format.
+- Classes: 80+ high priority, 65-79 worth testing, 45-64 monitor, under 45 low.
+- Evidence label: **Confirmed** (2+ independent source types), **Emerging** (1 source type), **Hypothesis** (Claude or manual, no numbers yet).
+- Every opportunity keeps every source URL, its fetch time and its published time.
+
+### Lifecycle
+Each trend gets a daily snapshot (momentum, volume, number of competitor videos). Rules: `new` (first 2 days), `emerging`, `accelerating` (growth rate rising), `peak` (flat at a high level), `saturating` (competitor count up, views per video down), `declining`, `re_emerging` (rising again after a decline), `expired` (no signal for 14 days). With fewer than 3 snapshots the status is "not enough data yet", never a guess.
+
+### Database (new D1 tables, migration 0004; existing tables untouched)
+`trend_profiles`, `trends` (dedupe key = normalised name), `trend_signals` (source, url, fetched_at, published_at, metric, value), `trend_snapshots`, `opportunities` (trend x account: components, score, class, evidence label, status new/approved/rejected/testing/won/lost/no_difference, reason), `opportunity_ideas` (title, hook, format, duration, storytelling, why, platform notes, risks, evidence ids), `trend_quota` (source, day, units), `manual_research`. Indexes on every hot WHERE column. Retention: rejected items deleted after 30 days, snapshots thinned after 90 days (the existing `thin.js` pattern).
+
+### Dashboard: a new "Trends" tab in the existing style
+Overview counters (discovered, high priority, emerging, accelerating, waiting for approval, testing, predictions that worked) · account picker (one account at a time) · explorer filters (account, platform, category, date, score, direction, lifecycle) · detail page (report, evidence with links and times, score breakdown, ideas, snapshot chart using the existing Chart.js) · history · a manual form (trend, source URL, account, notes, "analyse at next run", reject). Manual entries go through the same gate.
+
+### Feedback loop
+Approving writes the idea into the autopilot backlog through a new `kit.py` command that runs on the PC (the Worker can't reach local files): `kit.py trends-pull` fetches the approved items at the start of each evening run. When the linked test ends, `bothq_payload` carries `trend_id` and the outcome. The Worker marks the opportunity won, lost or no difference. The weekly report compares score bands with real outcomes ("80+ ideas won 2 of 5").
+
+### Schedules (all on schedulers you already have)
+| When | Where | What |
+|---|---|---|
+| Daily 05:30 UTC | GitHub Action `trends.yml` (Bot HQ repo) | Discover, update tracked trends, score, post |
+| Hourly | Existing Worker tick | Lifecycle expiry, push alert when a new high-priority item is waiting (respects `notify_only_needed`) |
+| Evening | Existing autopilot run | Pull approvals; write reports and ideas for at most 3 high-priority items |
+| Sundays | Same Action (weekly mode) + autopilot | Weekly per-account report; check past predictions against results |
+A failed source is recorded as `source_down` with the date, shown on the overview, and never fatal.
+
+### Dependencies (all free)
+Python standard library plus `feedparser` (MIT) and `requests`, both already used by shorts-radar. The YouTube API key comes from a free Google Cloud project (no card needed for the Data API). No new JS dependencies. GitHub Actions minutes are unlimited because the Bot HQ repo is public.
+
+---
+
+## Implementation phases (each is tested before the next)
+1. **Core:** migration 0004, profiles for 8 accounts (drafted by me from accounts.json and Brain notes, for you to check), the JS niche gate with tests, the score and class engine, `/api/trends/*` routes, dedupe.
+2. **Sources:** adapters for Google Trends RSS, Wikipedia, news RSS and YouTube (quota ledger, cache, retry with backoff, timeouts), plus the shorts-radar insights as a source. Adapter interface `fetch(profile, cache) -> [Signal]` so new sources plug in. The Action runs in dry-run mode first.
+3. **Intelligence:** clustering, lifecycle, competitor patterns (YouTube channels via RSS and API; TikTok and Instagram competitors from the autopilot watchlist only), history fit from autopilot state.
+4. **Interface:** the Trends tab, approve/reject, manual form. Checked at 375 px.
+5. **Automation:** `trends.yml`, the hourly Worker step, `kit.py trends-pull` / `trends KEY`, and a `ROUTINE.md` addition (needs your OK, because ROUTINE changes how the autopilot behaves).
+6. **Testing:** niche gate across every account pair, account separation, a source failing, quota cap, dedupe, scoring, persistence, and the existing 205 Bot HQ tests plus 61 kit tests still passing.
+7. **Docs:** `trends/README.md` (architecture, setup, environment variables, adding an account or source, troubleshooting), plus updates to PLAYBOOK.md, the Brain notes and the README index.
+
+## Your one manual setup step
+Create a free Google Cloud project, turn on YouTube Data API v3 and make an API key. I'll set it up through VaultBridge so the key never appears in chat, and it goes into the `YT_TREND_API_KEY` GitHub secret. Everything except the YouTube adapter works without it.
+
+---
+
+## Progress
+
+### Phase 1: core (done 2026-11-27, not deployed)
+- `migrations/0004_trends.sql`: `trends` (with `evidence_text`, so the gate can be re-run), `trend_signals`, `trend_snapshots`, `opportunities`, `opportunity_ideas`, `trend_quota`. Changed from the design: there's no `trend_profiles` or `manual_research` table. Profiles live in code (below), and manual research is stored as a `manual` signal plus an opportunity with `analysis_requested = 1` and `notes`.
+- `trends/profiles.json`: 8 active accounts (Eagle Eyes is stopped, so it has no profile). Niche, audience and name are copied word for word from accounts.json (generated by script, not retyped). `src/trends/profiles.js` deep-freezes them, and no API writes them.
+- `src/trends/gate.js`: the niche gate. Relevance is 0.55 for one anchor, +0.15 per extra anchor, +0.1 per related word (related words add at most 0.3). It passes at 0.6 or more with no exclusions. That means one anchor needs a second anchor or a supporting word.
+- `src/trends/score.js`: weights 25/20/15/15/10/10/5, configurable (`PUT /api/trends/weights`; niche weight must stay at 10 or more). A failed gate means class `rejected` and score `null`. Missing components count as 0 and are listed. Evidence labels: confirmed / emerging / hypothesis.
+- `src/trends/dedupe.js`: the key is the name's words sorted, minus filler words ("The case of X" = "X case").
+- `src/trends/store.js` + routes in `src/api.js`: `POST /api/trends/batch` (bot token, at most 20 candidates), `GET /api/trends` (filters: account, platform, class, status, lifecycle, category, since, min_score, include_rejected), `GET /api/trends/overview`, `GET /api/trends/:id[?account=]`, `POST /api/trends/opportunities/:id/approve|reject`, `POST /api/trends/manual`, `GET|PUT /api/trends/weights`.
+- Rules in the code: a user decision is never overwritten by a new sighting; approval re-runs the gate; nothing can be approved or rejected once its test has started; a failed gate is recorded only for the accounts the collector named, and every other account never hears of it.
+- CPU: the gate uses a phrase index (each term check is one lookup). Worst case, 20 candidates x 8 accounts at the 2,000-character cap, takes about 5.5 ms on this PC (the free plan allows 10 ms).
+- Verified: 242/242 tests (205 existing + 37 new: 15 niche samples across every account, manual adds, approval, dedupe, filters, weights). The Wrangler dry-run bundle builds. Migration 0004 applied to the local D1. A batch sent twice to `wrangler dev` stored 2 trends, 2 opportunities and 3 sources (no duplicates), and the test rows were deleted afterwards.
+- Not done: remote migration and deploy (waiting for phases 2-5, so the live app doesn't get routes with no data and no screen).
+
+### Next: phase 2 (source adapters in Python, `trends/`, GitHub Action dry run)

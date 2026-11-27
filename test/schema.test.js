@@ -2,10 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makeD1 } from "./d1.js";
 
-const TABLES = ["account", "events", "gate", "login_attempts", "milestones", "posts", "push_subs",
-  "runs", "sessions", "settings", "snapshots"];
+const TABLES = ["account", "events", "gate", "login_attempts", "milestones", "opportunities", "opportunity_ideas",
+  "posts", "push_subs", "runs", "sessions", "settings", "snapshots", "trend_quota", "trend_signals", "trend_snapshots", "trends"];
 
-test("makeD1 creates all 11 tables", async () => {
+test("makeD1 creates all 17 tables", async () => {
   const db = makeD1();
   const { results } = await db.prepare(
     "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all();

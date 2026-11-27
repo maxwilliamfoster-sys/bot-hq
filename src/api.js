@@ -11,6 +11,8 @@ import { runGraph, validSaved, PRESETS } from "./query.js";
 import { inboxData, eventDetail, markEvent } from "./inbox.js";
 import { radarData } from "./radar.js";
 import { validTracker, saveTracker, trackerData } from "./tracker.js";
+import { ingestBatch, manualAdd, decide, listOpportunities, trendDetail, overview, getWeights, putWeights } from "./trends/store.js";
+import { getProfile } from "./trends/profiles.js";
 
 const MAX_BODY = 512 * 1024;
 
@@ -142,6 +144,36 @@ export const routes = [
               (SELECT s.views FROM snapshots s WHERE s.post_id = p.id ORDER BY s.at DESC LIMIT 1) AS views
        FROM posts p WHERE p.bot = ? AND p.posted_at IS NOT NULL ORDER BY p.posted_at`).bind(bot).all();
     return json({ bot, posts: results });
+  }],
+
+  // ---- Trend Intelligence (every write runs the niche gate in src/trends/store.js) ----
+  ["POST", "/api/trends/batch", "bot", async ({ env, body }) => {
+    const r = await ingestBatch(env.DB, body, clock(env));
+    return r ? json(r) : json({ error: "bad_batch" }, 400);
+  }],
+  ["GET", "/api/trends", "session", async ({ env, url }) => {
+    const r = await listOpportunities(env.DB, url.searchParams);
+    return r ? json(r) : json({ error: "bad_filter" }, 400);
+  }],
+  ["GET", "/api/trends/overview", "session", async ({ env }) => json(await overview(env.DB))],
+  ["GET", "/api/trends/weights", "session", async ({ env }) => json(await getWeights(env.DB))],
+  ["PUT", "/api/trends/weights", "session", async ({ env, body }) => {
+    const w = await putWeights(env.DB, body, clock(env));
+    return w ? json(w) : json({ error: "bad_weights" }, 400);
+  }],
+  ["POST", "/api/trends/manual", "session", async ({ env, body }) => {
+    const { status, ...r } = await manualAdd(env.DB, body, clock(env));
+    return json(r, status);
+  }],
+  ["GET", /^\/api\/trends\/(\d+)$/, "session", async ({ env, url, params }) => {
+    const account = url.searchParams.get("account");
+    if (account && !getProfile(account)) return json({ error: "bad_account" }, 400);
+    const d = await trendDetail(env.DB, params[0], account);
+    return d ? json(d) : json({ error: "not_found" }, 404);
+  }],
+  ["POST", /^\/api\/trends\/opportunities\/(\d+)\/(approve|reject)$/, "session", async ({ env, body, params }) => {
+    const { status, status_now, ...r } = await decide(env.DB, params[0], params[1], body, clock(env));
+    return json(status_now ? { ...r, status: status_now } : r, status);
   }],
 
   ["GET", "/api/settings", "session", async ({ env }) => json(await getSettings(env.DB))],
