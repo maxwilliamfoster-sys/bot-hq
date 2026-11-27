@@ -78,6 +78,20 @@ test("invisible characters can't hide an exclusion", () => {
   }
 });
 
+test("rarer combining marks, variation selectors and ignorable characters can't split an exclusion", () => {
+  const p = getProfile("perc");
+  for (const ch of ["⃐", "᪰", "️", "\u{e0100}", "⁤", "᠋"]) {
+    const g = nicheGate({ name: `Relatable meme POV gif: mur${ch}der on the high street` }, p);
+    assert.deepEqual(g.excluded, ["murder"], JSON.stringify(ch));
+  }
+});
+
+test("a whole word spelled in look-alike letters still hits the exclusion", () => {
+  const g = nicheGate({ name: "Relatable meme POV gif: ԁеаԁ funny" }, getProfile("perc"));  // Cyrillic ԁ е а ԁ
+  assert.equal(g.passed, false);
+  assert.deepEqual(g.excluded, ["dead"]);
+});
+
 test("look-alike letters from another alphabet fail closed", () => {
   const g = nicheGate({ name: "Relatable meme POV gif: murdеr on the high street" }, getProfile("perc"));  // Cyrillic е
   assert.equal(g.passed, false);

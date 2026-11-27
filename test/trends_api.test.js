@@ -123,6 +123,23 @@ test("the stored-text cap can never hide new exclusion evidence", async () => {
   assert.equal((await list(env, cookie, "?account=buried&include_rejected=1")).items[0].class, "rejected");
 });
 
+test("an exclusion lost past the text cap still counts for an account that had no row", async () => {
+  const { env, cookie } = await env0();
+  const long = i => sig("news_rss", "news", `https://example.com/k${i}`, `Crown court murder trial day ${i}: ` + "the jury heard evidence ".repeat(11));
+  // The last title (beyond the 2,000-character cap) says people died; only buried was asked about.
+  await batch(env, [crime({ name: "Market Street case", text: "Cold case murder ".repeat(55),
+    signals: [...Array.from({ length: 9 }, (_, i) => long(i)), sig("news_rss", "news", "https://example.com/died", "Two people died")] })]);
+  const t = await env.DB.prepare("SELECT excluded_json, length(evidence_text) AS n FROM trends").first();
+  assert.ok(t.n <= 2000);
+  assert.ok(JSON.parse(t.excluded_json).includes("died"), "kept on the trend although the text was cut");
+  // Later it shows up with meme words: the meme account must still be refused.
+  await batch(env, [{ name: "Market Street case", for_accounts: ["perc"], components: ALL,
+    signals: [sig("news_rss", "news", "https://example.com/m", "Relatable meme POV gif reaction meme format")] }]);
+  const perc = (await list(env, cookie, "?account=perc&include_rejected=1")).items;
+  assert.equal(perc.length, 1);
+  assert.equal(perc[0].class, "rejected");
+});
+
 test("a rejection by Max sticks when the trend is seen again", async () => {
   const { env, cookie } = await env0();
   await batch(env, [crime()]);

@@ -9,6 +9,7 @@ CREATE TABLE trends (
   category TEXT,
   lifecycle TEXT NOT NULL DEFAULT 'new',
   evidence_text TEXT,            -- name + evidence titles (capped), so the gate can be re-run on approval
+  excluded_json TEXT,            -- every exclusion term any account's gate ever hit (kept apart from the cap)
   first_seen TEXT NOT NULL,
   last_seen TEXT NOT NULL
 );
