@@ -84,5 +84,5 @@ def parse_feed(text):
 
 
 def REGISTRY():
-    from . import google_trends, wikipedia, news, youtube, radar
-    return [google_trends, wikipedia, news, youtube, radar]
+    from . import google_trends, wikipedia, news, youtube, radar, competitors
+    return [google_trends, wikipedia, news, youtube, radar, competitors]

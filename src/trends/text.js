@@ -67,3 +67,29 @@ export function termHits(textOrIndex, terms) {
   }
   return out;
 }
+
+// Distinctive words, for matching a story or one of the account's past videos to a topic (not for the gate):
+// longer than 2 letters, not a common word (text_rules.json "stop", shared with Python), not a bare number.
+const STOP = new Set([...RULES.stop, ...RULES.filler]);
+export function distinctWords(s) {
+  return new Set(normalise(s).trim().split(" ").filter(w => w.length > 2 && !STOP.has(w) && !/^\d+$/.test(w)));
+}
+
+// Does a title (its distinctive words) belong to a topic? All of a name's words when it has up to 3, three
+// quarters of a longer one, never fewer than 2. A plural or possessive counts ("Carlsen's" reads "carlsens").
+// Same rule as trends/candidates.py.
+export function wordForms(w) {
+  const f = [w, `${w}s`, `${w}es`];
+  if (w.length > 3 && w.endsWith("s")) f.push(w.slice(0, -1));
+  if (w.length > 4 && w.endsWith("es")) f.push(w.slice(0, -2));
+  return f;
+}
+
+export function topicJoins(topicWords, titleWords) {
+  const k = topicWords.size;
+  if (k < 2) return false;
+  const need = k <= 3 ? k : Math.ceil((3 * k) / 4);
+  let n = 0;
+  for (const w of topicWords) if (wordForms(w).some(f => titleWords.has(f))) n++;
+  return n >= need;
+}

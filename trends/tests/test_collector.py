@@ -154,6 +154,69 @@ class SourceTest(unittest.TestCase):
         self.assertEqual(c.status_override.get("youtube"), "quota_capped")
 
 
+def yt_feed(views, days_ago=1):
+    entries = "".join(
+        f'<entry><yt:videoId>v{i}</yt:videoId><title>Magnus Carlsen trick {i}</title>'
+        f'<published>{(NOW.replace(day=27 - days_ago)).strftime("%Y-%m-%dT%H:%M:%S+00:00")}</published>'
+        f'<media:group><media:community><media:statistics views="{v}"/></media:community></media:group></entry>'
+        for i, v in enumerate(views))
+    return ('<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom" '
+            'xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/">'
+            f'{entries}</feed>')
+
+
+class CompetitorTest(unittest.TestCase):
+    ENV = {"APP_URL": "https://hq.test", "APP_EVENTS_TOKEN": "TOK", "YT_TREND_API_KEY": "K"}
+
+    def test_feed_outliers_only(self):
+        from trends.sources import competitors
+        out = competitors.parse_feed(yt_feed([1000, 1100, 900, 1000, 5000]), "Rival", "chess", NOW)
+        self.assertEqual([s["url"] for s in out], ["https://www.youtube.com/watch?v=v4"])
+        self.assertTrue(out[0]["_attach_only"])
+        self.assertEqual(out[0]["_for"], ["chess"])
+        self.assertEqual(competitors.parse_feed(yt_feed([1000, 9000]), "R", "chess", NOW), [], "too few videos to judge")
+        self.assertEqual(competitors.parse_feed(yt_feed([1000, 1100, 900, 1000, 5000], days_ago=20), "R", "chess", NOW), [])
+
+    def test_skipped_without_bot_hq(self):
+        from trends.sources import competitors
+        with self.assertRaises(Skipped):
+            competitors.run(ctx({}))
+
+    def test_watchlist_handles_resolved_once_and_quota_counted(self):
+        from trends.sources import competitors
+        st = {}
+        routes = {"/api/trends/context": {"accounts": {"chess": [{"channel": "Nerd", "url": "https://www.youtube.com/@thechessnerd"}],
+                                                       "eagle": [{"channel": "X", "url": "https://www.youtube.com/@x"}]}},
+                  "forHandle=%40thechessnerd": {"items": [{"id": "UC" + "a" * 22}]},
+                  "feeds/videos.xml?channel_id=UC": yt_feed([1000, 1100, 900, 1000, 5000])}
+        c = ctx(routes, env=self.ENV, state=st)
+        out = competitors.run(c)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(st["yt_channel_ids"]["@thechessnerd"], "UC" + "a" * 22)
+        self.assertEqual(st["quota"]["youtube"]["2026-11-27"], 1)
+        self.assertFalse(any("@x" in u for u in c.http.calls), "stopped accounts (eagle) are ignored")
+        competitors.run(ctx(routes, env=self.ENV, state=st))
+        self.assertEqual(st["quota"]["youtube"]["2026-11-27"], 1, "a known handle costs nothing")
+        self.assertNotIn("TOK", json.dumps(out) + json.dumps(st))
+
+    def test_handle_without_key_is_noted_not_fatal(self):
+        from trends.sources import competitors
+        c = ctx({"/api/trends/context": {"accounts": {"chess": [{"url": "https://www.youtube.com/@thechessnerd"}]}}},
+                env={"APP_URL": "https://hq.test", "APP_EVENTS_TOKEN": "TOK"})
+        self.assertEqual(competitors.run(c), [])
+        self.assertIn("free YouTube key", " ".join(c.notes["youtube_competitors"]))
+
+    def test_competition_from_recent_shorts(self):
+        from trends import competition
+        cands, _ = candidates.build([sig("New nebula image from Hubble telescope", "news")], PROFILES, NOW)
+        c = ctx({"youtube/v3/search": {"items": [{}] * 10}}, env={"YT_TREND_API_KEY": "K"}, state={})
+        r = competition.check(cands, c)
+        self.assertEqual(r["checked"], 1)
+        self.assertEqual(cands[0]["components"]["competition"], 0.8)
+        self.assertEqual(cands[0]["snapshot"]["competitor_count"], 10)
+        self.assertEqual(competition.check(cands, ctx({}))["status"], "skipped")
+
+
 class CandidateTest(unittest.TestCase):
     def test_story_attaches_only_on_two_words(self):
         sigs = [sig("James Webb Space Telescope", "wiki", source="wikipedia", _momentum=0.5, _volume=20000),

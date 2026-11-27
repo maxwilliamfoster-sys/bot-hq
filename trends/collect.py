@@ -17,7 +17,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from . import candidates, manual_links, state as state_mod
+from . import candidates, competition, manual_links, state as state_mod
 from .http import Http, redact
 from .sources import REGISTRY, Skipped
 from .textmatch import load_profiles
@@ -83,12 +83,16 @@ def markdown(report):
     lines += ["", "## Candidates", "",
               f"{b['signals']} signals, {b['topics']} topics, {b['story_groups']} story groups; "
               f"{b['no_account_passed']} matched no account's niche, {b['videos_unmatched']} videos matched no topic; "
-              f"{b['candidates']} candidates" + (f" ({b['over_cap']} more over the cap)" if b["over_cap"] else "") + ".", ""]
+              f"{b['candidates']} candidates" + (f" ({b['over_cap']} more over the cap)" if b["over_cap"] else "") + ". "
+              f"Competition check: {b['competition'].get('status')}"
+              + (f", {b['competition'].get('checked')} topics" if b["competition"].get("checked") is not None else "")
+              + (f" ({b['competition']['reason']})" if b["competition"].get("reason") else "") + ".", ""]
     for c in report["candidates"]:
         acc = ", ".join(f"{k}{'' if g['passed'] else ' (rejected: ' + ('excluded ' + ', '.join(g['excluded']) if g['excluded'] else 'too weak') + ')'}"
                         for k, g in c["gates"].items())
         comp = ", ".join(f"{k} {v}" for k, v in c["components"].items()) or "no numbers"
-        flag = " ⚠ active court case: wait for the verdict, court-established facts only." if "active_case" in c["flags"] else ""
+        flag = (" ⚠ allegation or live court case, no verdict yet: never present it as fact; true crime waits "
+                "for the verdict." if "active_case" in c["flags"] else "")
         lines.append(f"- **{c['name']}** -> {acc}.{flag} {len(c['signals'])} signals from "
                      f"{', '.join(sorted({s['source'] for s in c['signals']}))}. {comp}.")
     if report.get("post"):
@@ -119,6 +123,7 @@ def main(argv=None, env=None, http=None, modules=None, now=None, out_dir=None, s
 
     signals, status = run_sources(ctx, mods)
     cands, build = candidates.build(signals, profiles, now)
+    build["competition"] = competition.check(cands, ctx)
     report = {"generated": now.strftime("%Y-%m-%d %H:%M UTC"), "posted": False, "sources": status, "build": build,
               "candidates": [{"name": c["name"], "text": c["text"], "for_accounts": c["for_accounts"], "components": c["components"],
                               "gates": c["_gates"], "flags": c["_flags"], "signals": c["signals"]} for c in cands],

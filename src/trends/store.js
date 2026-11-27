@@ -4,7 +4,8 @@ import { PROFILES, getProfile, profileHash } from "./profiles.js";
 import { nicheGate, gateText } from "./gate.js";
 import { DEFAULT_WEIGHTS, COMPONENTS, validWeights, scoreOpportunity, evidenceLabel } from "./score.js";
 import { dedupeKey } from "./dedupe.js";
-import { normalise, phraseIndex, hasMixedScript } from "./text.js";
+import { normalise, phraseIndex, hasMixedScript, distinctWords } from "./text.js";
+import { flagsFor, lifecycle, loadHistory, historyFor } from "./intel.js";
 
 // Free plan: 10 ms CPU per request. The gate reads the stored text (TEXT_CAP) plus the full incoming text, so
 // the batch is small. Measured worst case (every field at its limit, 8 accounts): 8 candidates 6.4-8.8 ms, so 5.
@@ -102,8 +103,24 @@ const signalStmt = (db, trendId, s, manual = 0) => db.prepare(
   .bind(trendId, s.source, s.source_type, s.url || "", s.title || null, s.published_at || null, s.fetched_at,
     s.metric || "", Number.isFinite(s.value) ? s.value : null, manual);
 
+// The collector's numbers, minus the ones only the Worker may work out (from Bot HQ's own data).
+const WORKER_ONLY = new Set(["originality"]);
 function cleanComponents(c = {}) {
-  return Object.fromEntries(COMPONENTS.filter(k => Number.isFinite(c?.[k])).map(k => [k, c[k]]));
+  return Object.fromEntries(COMPONENTS.filter(k => !WORKER_ONLY.has(k) && Number.isFinite(c?.[k])).map(k => [k, c[k]]));
+}
+
+// Collector components + history fit and originality from this account's own videos and ideas.
+function withHistory(components, hist, profile, topicWords, now) {
+  return { ...components, ...historyFor(hist.get(profile.key), topicWords, now) };
+}
+
+async function refreshTrend(db, id, text, now) {
+  const [t, snaps] = await Promise.all([
+    db.prepare("SELECT first_seen, last_seen, lifecycle FROM trends WHERE id = ?").bind(id).first(),
+    db.prepare("SELECT day, momentum, volume, competitor_count FROM trend_snapshots WHERE trend_id = ? ORDER BY day DESC LIMIT 14").bind(id).all(),
+  ]);
+  const life = lifecycle({ first_seen: t.first_seen, last_seen: t.last_seen, previous: t.lifecycle }, snaps.results, now);
+  return db.prepare("UPDATE trends SET lifecycle = ?, flags = ? WHERE id = ?").bind(life, JSON.stringify(flagsFor(text)), id);
 }
 
 function opportunityStmt(db, { trendId, profile, gate, components, evidence, weights, now, notes = null, analysis = 0 }) {
@@ -139,24 +156,27 @@ export async function ingestBatch(db, body, now) {
   const cands = body?.candidates;
   if (!Array.isArray(cands) || cands.length > MAX_BATCH) return null;
   const weights = await getWeights(db);
+  const hist = await loadHistory(db);
   const out = { trends: 0, invalid: 0, opportunities: 0, rejected: 0 };
   for (const c of cands) {
     if (!validCandidate(c)) { out.invalid++; continue; }
     const { id, text, excluded } = await upsertTrend(db, c, now);
-    await db.batch(c.signals.map(s => signalStmt(db, id, s)));
-    const evidence = await evidenceFor(db, id);
-    const stmts = [];
+    const first = c.signals.map(s => signalStmt(db, id, s));
     if (c.snapshot && typeof c.snapshot === "object") {
       const n = v => (Number.isFinite(v) ? v : null);
-      stmts.push(db.prepare(
+      first.push(db.prepare(
         `INSERT INTO trend_snapshots (trend_id, day, momentum, volume, competitor_count) VALUES (?, ?, ?, ?, ?)
          ON CONFLICT(trend_id, day) DO UPDATE SET momentum = excluded.momentum, volume = excluded.volume,
            competitor_count = excluded.competitor_count`)
         .bind(id, now.toISOString().slice(0, 10), n(c.snapshot.momentum), n(c.snapshot.volume), n(c.snapshot.competitor_count)));
     }
+    await db.batch(first);
+    const evidence = await evidenceFor(db, id);
     const asked = new Set(c.for_accounts || []);
     // Judge the stored (capped) text AND the whole incoming text, so the cap can never hide a new exclusion.
     const full = `${text}\n${gateText(c)}`;
+    const stmts = [await refreshTrend(db, id, full, now)];
+    const topicWords = distinctWords(c.name);
     const index = phraseIndex(normalise(full));
     const mixed = hasMixedScript(full);
     const prior = await priorGates(db, id);
@@ -168,12 +188,12 @@ export async function ingestBatch(db, body, now) {
       // (so Max can see why) and for any account that already has a row (so a pass can't go stale); every
       // other account simply never hears of it.
       if (!gate.passed && !asked.has(profile.key) && !prior.has(profile.key)) continue;
-      const components = cleanComponents(c.account_components?.[profile.key] ?? c.components);
+      const components = withHistory(cleanComponents(c.account_components?.[profile.key] ?? c.components), hist, profile, topicWords, now);
       stmts.push(opportunityStmt(db, { trendId: id, profile, gate, components, evidence, weights, now }));
       gate.passed ? out.opportunities++ : out.rejected++;
     }
     for (const term of allExcluded) if (!excluded.includes(term)) stmts.push(exclusionStmt(db, id, term));
-    if (stmts.length) await db.batch(stmts);
+    await db.batch(stmts);
     out.trends++;
   }
   return out;
@@ -191,11 +211,13 @@ export async function manualAdd(db, b, now) {
   const gate = nicheGate({ name: b.name, text: b.text, prior_excluded: knownId ? await exclusionsFor(db, knownId) : [] }, profile);
   if (!gate.passed) return { status: 422, error: "niche_gate", gate };
   const c = { name: b.name, text: b.text };
-  const { id } = await upsertTrend(db, c, now);
+  const { id, text } = await upsertTrend(db, c, now);
   await signalStmt(db, id, { source: "manual", source_type: "manual", url: b.url || "", title: b.name, fetched_at: now.toISOString(), metric: "manual" }, 1).run();
   const evidence = await evidenceFor(db, id);
-  await opportunityStmt(db, { trendId: id, profile, gate, components: {}, evidence, weights: await getWeights(db), now,
-    notes: b.notes?.trim() || null, analysis: 1 }).run();
+  const components = withHistory({}, await loadHistory(db), profile, distinctWords(b.name), now);
+  await db.batch([await refreshTrend(db, id, text, now),
+    opportunityStmt(db, { trendId: id, profile, gate, components, evidence, weights: await getWeights(db), now,
+      notes: b.notes?.trim() || null, analysis: 1 })]);
   const opp = await db.prepare("SELECT id FROM opportunities WHERE trend_id = ? AND account = ?").bind(id, profile.key).first("id");
   return { status: 200, trend_id: id, opportunity_id: opp };
 }
@@ -232,12 +254,14 @@ export async function decide(db, id, action, b, now) {
 }
 
 // ---- reads -------------------------------------------------------------------
+const parseFlags = f => { try { const v = JSON.parse(f || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } };
+
 function itemOut(r) {
   const p = getProfile(r.account);
   const components = JSON.parse(r.components_json || "{}");
   return {
     id: r.id, trend_id: r.trend_id, account: r.account, account_name: p?.name || r.account, platform: p?.platform || null,
-    name: r.name, category: r.category, lifecycle: r.lifecycle, first_seen: r.first_seen, last_seen: r.last_seen,
+    name: r.name, category: r.category, lifecycle: r.lifecycle, flags: parseFlags(r.flags), first_seen: r.first_seen, last_seen: r.last_seen,
     score: r.score, class: r.class, evidence: r.evidence, status: r.status, status_reason: r.status_reason,
     notes: r.notes, analysis_requested: r.analysis_requested, updated_at: r.updated_at,
     missing: COMPONENTS.filter(k => !Number.isFinite(components[k])),
@@ -283,7 +307,7 @@ export async function listOpportunities(db, q) {
   }
   const limit = Math.min(200, Math.max(1, Number(q.get("limit")) || 50));
   const { results } = await db.prepare(
-    `SELECT o.*, t.name, t.category, t.lifecycle, t.first_seen, t.last_seen
+    `SELECT o.*, t.name, t.category, t.lifecycle, t.flags, t.first_seen, t.last_seen
      FROM opportunities o JOIN trends t ON t.id = o.trend_id
      ${where.length ? "WHERE " + where.join(" AND ") : ""}
      ORDER BY o.score IS NULL, o.score DESC, o.updated_at DESC LIMIT ?`).bind(...args, limit).all();
@@ -291,13 +315,13 @@ export async function listOpportunities(db, q) {
 }
 
 export async function trendDetail(db, id, account) {
-  const t = await db.prepare("SELECT id, name, category, lifecycle, first_seen, last_seen FROM trends WHERE id = ?").bind(Number(id)).first();
+  const t = await db.prepare("SELECT id, name, category, lifecycle, flags, first_seen, last_seen FROM trends WHERE id = ?").bind(Number(id)).first();
   if (!t) return null;
   const [signals, snapshots, opps] = await Promise.all([
     db.prepare(`SELECT id, source, source_type, url, title, published_at, fetched_at, metric, value, manual
                 FROM trend_signals WHERE trend_id = ? ORDER BY fetched_at, id`).bind(t.id).all(),
     db.prepare("SELECT day, momentum, volume, competitor_count FROM trend_snapshots WHERE trend_id = ? ORDER BY day").bind(t.id).all(),
-    db.prepare(`SELECT o.*, t.name, t.category, t.lifecycle, t.first_seen, t.last_seen FROM opportunities o
+    db.prepare(`SELECT o.*, t.name, t.category, t.lifecycle, t.flags, t.first_seen, t.last_seen FROM opportunities o
                 JOIN trends t ON t.id = o.trend_id WHERE o.trend_id = ? ${account ? "AND o.account = ?" : ""}
                 ORDER BY o.score IS NULL, o.score DESC`).bind(...(account ? [t.id, account] : [t.id])).all(),
   ]);
@@ -313,7 +337,7 @@ export async function trendDetail(db, id, account) {
     }
   }
   return {
-    trend: t, signals: signals.results, snapshots: snapshots.results,
+    trend: { ...t, flags: parseFlags(t.flags) }, signals: signals.results, snapshots: snapshots.results,
     opportunities: opps.results.map(o => {
       const p = getProfile(o.account);
       return {

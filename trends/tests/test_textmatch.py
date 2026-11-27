@@ -14,6 +14,21 @@ class Parity(unittest.TestCase):
         for text, want in PARITY["normalise"]:
             self.assertEqual(tm.normalise(text), want, ascii(text))
 
+    def test_distinct_words(self):
+        from trends.candidates import words
+        for text, want in PARITY["words"]:
+            self.assertEqual(sorted(words(text)), want, ascii(text))
+
+    def test_topic_joins(self):
+        from trends.candidates import words, _joins
+        for topic, title, want in PARITY["joins"]:
+            self.assertEqual(_joins(words(topic), words(title)), want, f"{topic} / {title}")
+
+    def test_flags(self):
+        from trends.candidates import flags
+        for text, want in PARITY["flags"]:
+            self.assertEqual(flags(text, ""), want, ascii(text))
+
     def test_dedupe(self):
         for name, want in PARITY["dedupe"]:
             self.assertEqual(tm.dedupe_key(name), want, ascii(name))

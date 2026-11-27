@@ -13,6 +13,7 @@ import { radarData } from "./radar.js";
 import { validTracker, saveTracker, trackerData } from "./tracker.js";
 import { ingestBatch, manualAdd, decide, listOpportunities, trendDetail, overview, getWeights, putWeights } from "./trends/store.js";
 import { getProfile } from "./trends/profiles.js";
+import { collectorContext } from "./trends/intel.js";
 
 const MAX_BODY = 512 * 1024;
 
@@ -156,6 +157,7 @@ export const routes = [
     return r ? json(r) : json({ error: "bad_filter" }, 400);
   }],
   ["GET", "/api/trends/overview", "session", async ({ env }) => json(await overview(env.DB))],
+  ["GET", "/api/trends/context", "bot", async ({ env }) => json(await collectorContext(env.DB))],
   ["GET", "/api/trends/weights", "session", async ({ env }) => json(await getWeights(env.DB))],
   ["PUT", "/api/trends/weights", "session", async ({ env, body }) => {
     const w = await putWeights(env.DB, body, clock(env));

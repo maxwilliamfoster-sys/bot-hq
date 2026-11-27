@@ -10,6 +10,7 @@ import { pollZernio, pollZernioViews } from "./watch/zernio.js";
 import { thinPlan } from "./thin.js";
 import { refreshGate } from "./watch/gate.js";
 import { weeklyRadarCheck } from "./radar.js";
+import { trendUpkeep } from "./trends/intel.js";
 import { viewHealth, coachEvent, reviewEvent, PLAYBOOK, REVIEW_EVERY_DAYS } from "./coach.js";
 
 const H = 3600e3;
@@ -318,6 +319,8 @@ export async function runSchedule(event, env, ctx, fetchFn = fetch, now = new Da
   }
   await step(env, now, "doing well", () => checkDoingWell(env, db, now, hourly));
   if (now.getUTCHours() === 3 && hourly) await step(env, now, "thinning", () => thinSnapshots(db, now));
+  // Before the 05:30 trend collector: rebuild each account's video history, expire stale trends, clean up.
+  if (now.getUTCHours() === 5 && hourly) await step(env, now, "trend upkeep", () => trendUpkeep(db, now));
   if (now.getUTCHours() === 6 && hourly) await step(env, now, "views falling", () => checkViewsFall(env, db, now));
   if (now.getUTCHours() === 8 && hourly) await step(env, now, "coach", () => checkCoach(env, db, now));
 

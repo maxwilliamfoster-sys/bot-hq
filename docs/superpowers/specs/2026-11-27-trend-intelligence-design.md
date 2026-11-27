@@ -157,4 +157,15 @@ Create a free Google Cloud project, turn on YouTube Data API v3 and make an API 
 - `.github/workflows/trends.yml`: daily 05:30 UTC plus manual; tests, then a dry run; report in the job summary and as an artifact; state in the Actions cache. It sends nothing.
 - Known: the same topic can appear twice when names differ by a year ("2026 FIFA U-17 World Cup" vs "FIFA U-17 World Cup"); the Wikipedia pass takes about 2 minutes uncached (serial, polite).
 
-### Next: phase 3 (intelligence: history fit from autopilot outcomes, competition counts, originality vs past videos, lifecycle rules, active-case flag stored)
+### Phase 3: intelligence (done 2026-11-27, not deployed)
+- History comes from Bot HQ itself, not the PC: `posts` + `snapshots` (each account's own videos and views) and the autopilot block kit.py already posts (approaches, open ideas, competitor watchlist). So the GitHub collector needs no access to local files.
+- `src/trends/intel.js`: `buildHistory` (daily 05:00 UTC cron step `trend upkeep`, stored as one settings row with a word index), `historyFor` (history fit -1..1, up to +-3 points inside audience; originality 0..1), `lifecycle` (rules above, `not_enough_data` under 3 readings, plus `flat`), `flagsFor` (`active_case`), `trendUpkeep` (expire after 14 days, delete failed-gate rows after 30; Max's rejections kept), `collectorContext` (GET `/api/trends/context`, bot credential, public YouTube competitor links only).
+- Migration 0005: `trends.flags`, a cleanup index. Applied to the local D1 without problems.
+- Originality and history fit are the Worker's to compute; the collector's originality is ignored. Missing history = component missing, never filled in.
+- Shared word rules moved to `trends/text_rules.json` (`stop`, `allegation`); parity.json now also checks distinct words, topic joins (plurals and possessives both ways) and flags between JS and Python.
+- Collector: `sources/competitors.py` (watchlist channels' public upload feeds; @handles resolved once with the key, 1 unit, cached), `competition.py` (recent Shorts on the 8 strongest topics, 100 units each, same cap). Both skip cleanly without the key or Bot HQ credentials.
+- CPU: the history step parses about 80 KB (0.2-0.4 ms) and looks words up in a precomputed index, capped at the 30 newest matches per account. Pathological case (every video of all 8 accounts matching) about 3 ms; realistic well under 1 ms, because only the accounts being written are checked.
+- Tests: 262 JS (10 new in trends_intel.test.js) and 50 Python. Live dry run: 60 candidates, 0 invalid, 0 gate mismatches; 11 flagged as allegations / live cases.
+- Not yet: TikTok and Instagram competitor patterns (watchlist text only, no free feed); the Action doesn't pass APP_URL/token yet (the context route isn't deployed), so competitor feeds start in phase 5.
+
+### Next: phase 4 (interface: the Trends tab, approve/reject, manual form, flags and lifecycle shown; checked at 375 px)

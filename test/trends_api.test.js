@@ -59,7 +59,10 @@ test("a niche trend is stored for its account with its evidence, score and class
   const d0 = await (await call(env, "GET", `/api/trends/${o.trend_id}?account=buried`, { cookie })).json();
   const rel = d0.opportunities[0].gate.relevance;
   assert.ok(rel >= 0.6 && rel < 1);
-  assert.equal(o.score, Math.round(25 * rel + 75), "niche points scale with relevance; the rest were full marks");
+  // Originality is the Worker's to work out (from the account's own videos); with no history it stays missing,
+  // whatever the collector sent. Everything else was full marks.
+  assert.equal(o.score, Math.round(25 * rel + 70), "niche points scale with relevance; originality not claimed");
+  assert.deepEqual(o.missing, ["originality"]);
   assert.equal(o.evidence, "confirmed");
   assert.equal(o.status, "new");
   const d = await (await call(env, "GET", `/api/trends/${o.trend_id}`, { cookie })).json();

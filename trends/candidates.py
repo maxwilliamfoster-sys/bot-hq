@@ -13,7 +13,7 @@
 4. Score components are 0..1 numbers worked out from the signals. A component with no data is left out (the
    Worker then counts it as 0 and lists it as missing); nothing is estimated.
 """
-from .textmatch import FILLER, dedupe_key, has_mixed_script, niche_gate, normalise, phrase_index
+from .textmatch import FILLER, RULES, dedupe_key, term_hits, has_mixed_script, niche_gate, normalise, phrase_index
 from .sources import clamp01, log_momentum, parse_time
 
 MAX_BATCH = 5
@@ -24,14 +24,9 @@ STORY_OVERLAP = 3
 API_FIELDS = ("source", "source_type", "url", "title", "published_at", "fetched_at", "metric", "value")
 
 
-# Common words that say nothing about what a story is about. Only used for grouping here; the niche gate and the
-# dedupe key (shared with the Worker) don't use this list.
-STOP = FILLER | set("""about after again against all also and any are around back been before being but can could
-did does down during each even first for from get gets got had has have her here him his how into its just last
-latest like live made make more most much new news next not now off one only other our out over own said
-says see she should since some still such than that the their them then there these they this those three today
-told too two under until update updates very via was watch way were what when where which while who why will
-with would year years yet you your""".split())
+# Common words that say nothing about what a story is about (text_rules.json "stop", shared with the Worker's
+# distinctWords). Not used by the niche gate.
+STOP = FILLER | set(RULES["stop"])
 
 
 def words(text):
@@ -45,11 +40,21 @@ def _key_words(key):
 
 def _joins(kw, tw):
     """A story or video belongs to a topic when it shares the topic's words: all of them for a name of up to 3
-    words, three quarters for a longer one, and never fewer than 2."""
+    words, three quarters for a longer one, and never fewer than 2. Plurals and possessives count. Same rule as
+    the Worker's topicJoins (src/trends/text.js)."""
     if len(kw) < 2:
         return False
     need = len(kw) if len(kw) <= 3 else -(-3 * len(kw) // 4)
-    return len(kw & tw) >= need
+    return sum(1 for w in kw if any(f in tw for f in word_forms(w))) >= need
+
+
+def word_forms(w):
+    f = [w, w + "s", w + "es"]
+    if len(w) > 3 and w.endswith("s"):
+        f.append(w[:-1])
+    if len(w) > 4 and w.endswith("es"):
+        f.append(w[:-2])
+    return f
 
 
 def _same_story(a, b):
@@ -188,7 +193,7 @@ def build(signals, profiles, now):
             "snapshot": {"momentum": comp.get("momentum"), "volume": max((s.get("_volume") or 0 for s in sigs), default=0) or None,
                          "competitor_count": None},
             "_gates": {k: gates[k] for k in named}, "_best": gates[best]["relevance"],
-            "_flags": flags(name, text) if "buried" in named else [],
+            "_flags": flags(name, text),
         })
     # Strongest first, so the cap drops the weakest.
     out.sort(key=lambda c: (-c["_best"], -(c["components"].get("momentum") or 0)))
@@ -223,19 +228,13 @@ def _api_signal(s):
     return out
 
 
-# Live court cases (UK contempt of court risk, and the rule that nobody accused is presented as guilty). Flagged
-# for the true-crime account so ideas wait for a verdict and stick to what the court established.
-ACTIVE_CASE = ("accused", "alleged", "allegedly", "trial", "charged", "court hears", "court told", "jury",
-               "arrested", "suspect", "bailed", "denies", "pleaded not guilty", "remanded")
-SETTLED = ("convicted", "found guilty", "guilty of", "sentenced", "jailed", "life sentence", "whole-life")
-
-
+# Live court cases and allegations (UK contempt of court risk, and the rule that nobody accused is presented as
+# guilty). The Worker works the flag out itself (src/trends/intel.js flagsFor) from the same word lists; this copy
+# is only for the report.
 def flags(name, text):
-    t = f"{name} {text or ''}".lower()
-    out = []
-    if any(w in t for w in ACTIVE_CASE) and not any(w in t for w in SETTLED):
-        out.append("active_case")
-    return out
+    idx = phrase_index(normalise(f"{name} \n {text or ''}"))
+    a = RULES["allegation"]
+    return ["active_case"] if term_hits(idx, a["active"]) and not term_hits(idx, a["settled"]) else []
 
 
 def to_api(c):

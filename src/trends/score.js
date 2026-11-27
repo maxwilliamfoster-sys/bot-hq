@@ -6,6 +6,7 @@ export const DEFAULT_WEIGHTS = Object.freeze({
 export const COMPONENTS = ["momentum", "audience", "performance", "competition", "timeliness", "originality"];
 const KEYS = Object.keys(DEFAULT_WEIGHTS);
 export const MIN_NICHE_WEIGHT = 10;
+export const HISTORY_SHARE = 0.2;
 
 export function validWeights(w) {
   if (!w || typeof w !== "object" || Array.isArray(w)) return false;
@@ -30,7 +31,10 @@ export function scoreOpportunity(gate, components = {}, weights = DEFAULT_WEIGHT
   const total = KEYS.reduce((s, k) => s + weights[k], 0) || 1;
   let raw = weights.niche * clamp01(gate.relevance);
   for (const k of COMPONENTS) if (!missing.includes(k)) raw += weights[k] * clamp01(components[k]);
-  const score = Math.round((raw / total) * 100);
+  // History fit (-1..1, from this account's own past videos on the topic) moves audience interest by up to a
+  // fifth of its weight: +-3 points at the default 15.
+  if (Number.isFinite(components?.history_fit)) raw += weights.audience * HISTORY_SHARE * Math.max(-1, Math.min(1, components.history_fit));
+  const score = Math.max(0, Math.min(100, Math.round((raw / total) * 100)));
   return { score, class: classify(score), missing };
 }
 
