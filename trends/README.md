@@ -86,7 +86,13 @@ Without it, YouTube is skipped and everything else still runs.
    is needed.
 2. For local runs, store it in VaultBridge (service `youtube_trends`) and run
    `vaultbridge run --service youtube_trends -- py -m trends.collect`.
-3. For the Action, add it as the repository secret `YT_TREND_API_KEY`.
+3. For the Action, add it as the repository secret `YT_TREND_API_KEY`. To copy it from VaultBridge without it ever
+   showing, run a script under `vaultbridge run --service youtube_trends` that pipes `$YT_TREND_API_KEY` into
+   `gh secret set YT_TREND_API_KEY`.
+
+VaultBridge's built-in test for this service always says it failed (HTTP 400), because it sends no `part`
+parameter and every YouTube endpoint needs one. To check the key, call `channel_by_handle` with `part=id` and
+`forHandle=@YouTube` (1 unit). A good key answers 200.
 
 The key is only ever sent to googleapis.com. URLs are redacted before any log line, and cache files are named
 by a hash, so the key never lands in a log, a report or the cache.
