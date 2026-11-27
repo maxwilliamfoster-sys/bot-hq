@@ -42,7 +42,7 @@ test("the batch route needs the bot token and the read routes need a session", a
 test("bad batches are refused", async () => {
   const { env } = await env0();
   assert.equal((await batch(env, "nope")).status, 400);
-  assert.equal((await batch(env, Array.from({ length: 21 }, () => crime()))).status, 400);
+  assert.equal((await batch(env, Array.from({ length: 6 }, () => crime()))).status, 400);
   const r = await (await batch(env, [{ name: "" }, { name: "x", signals: [{ source: "a" }] }])).json();
   assert.equal(r.invalid, 2);
 });
@@ -98,6 +98,29 @@ test("the same trend twice updates one row, keeps one copy of each source, adds 
   assert.equal(l.items.length, 1);
   const d = await (await call(env, "GET", `/api/trends/${l.items[0].trend_id}`, { cookie })).json();
   assert.equal(d.signals.length, 3);
+});
+
+test("a pass can't go stale: new failing evidence rejects an existing row even when its account wasn't named", async () => {
+  const { env, cookie } = await env0();
+  await batch(env, [crime()]);
+  assert.equal((await list(env, cookie, "?account=buried")).items[0].class, "high");
+  await batch(env, [crime({ for_accounts: [], signals: [sig("news_rss", "news", "https://example.com/g", "Murder mystery game tops the charts")] })]);
+  const o = (await list(env, cookie, "?account=buried&include_rejected=1")).items[0];
+  assert.equal(o.class, "rejected");
+  assert.equal(o.score, null);
+  assert.equal((await call(env, "POST", `/api/trends/opportunities/${o.id}/approve`, { cookie })).status, 409);
+});
+
+test("the stored-text cap can never hide new exclusion evidence", async () => {
+  const { env, cookie } = await env0();
+  const long = i => sig("news_rss", "news", `https://example.com/l${i}`, `Crown court murder trial day ${i}: ` + "the jury heard evidence ".repeat(11));
+  await batch(env, [crime({ text: "Cold case murder ".repeat(55), signals: Array.from({ length: 10 }, (_, i) => long(i)) })]);
+  assert.equal((await list(env, cookie, "?account=buried")).items[0].class, "high");
+  await batch(env, [crime({ signals: [sig("news_rss", "news", "https://example.com/z", "Now a murder mystery game")] })]);
+  assert.equal((await list(env, cookie, "?account=buried&include_rejected=1")).items[0].class, "rejected");
+  // And it stays rejected when the next sighting is clean.
+  await batch(env, [crime()]);
+  assert.equal((await list(env, cookie, "?account=buried&include_rejected=1")).items[0].class, "rejected");
 });
 
 test("a rejection by Max sticks when the trend is seen again", async () => {

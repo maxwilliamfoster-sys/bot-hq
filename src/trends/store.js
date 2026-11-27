@@ -4,11 +4,12 @@ import { PROFILES, getProfile, profileHash } from "./profiles.js";
 import { nicheGate, gateText } from "./gate.js";
 import { DEFAULT_WEIGHTS, COMPONENTS, validWeights, scoreOpportunity, evidenceLabel } from "./score.js";
 import { dedupeKey } from "./dedupe.js";
-import { normalise, phraseIndex } from "./text.js";
+import { normalise, phraseIndex, hasMixedScript } from "./text.js";
 
-// Free plan: 10 ms CPU per request. Measured worst case (every candidate at TEXT_CAP, 8 accounts): ~5 ms for 20.
-export const MAX_BATCH = 20;
-const MAX_SIGNALS = 30;
+// Free plan: 10 ms CPU per request. The gate reads the stored text (TEXT_CAP) plus the full incoming text, so
+// the batch is small. Measured worst case (every field at its limit, 8 accounts): 8 candidates 6.4-8.8 ms, so 5.
+export const MAX_BATCH = 5;
+const MAX_SIGNALS = 10;
 const TEXT_CAP = 2000;
 const SOURCE_TYPES = new Set(["search", "wiki", "news", "video", "social", "manual", "claude"]);
 export const CLASSES = ["high", "test", "monitor", "low", "rejected"];
@@ -32,7 +33,7 @@ function validSignal(s) {
 
 export function validCandidate(c) {
   return !!c && typeof c === "object" && str(c.name, 200) && !!dedupeKey(c.name) &&
-    optStr(c.category, 60) && optStr(c.text, 2000) &&
+    optStr(c.category, 60) && optStr(c.text, 1000) &&
     Array.isArray(c.signals) && c.signals.length > 0 && c.signals.length <= MAX_SIGNALS && c.signals.every(validSignal) &&
     (c.for_accounts === undefined || (Array.isArray(c.for_accounts) && c.for_accounts.every(k => typeof k === "string"))) &&
     (c.components === undefined || (c.components && typeof c.components === "object"));
@@ -113,6 +114,13 @@ function opportunityStmt(db, { trendId, profile, gate, components, evidence, wei
       s.score, s.class, evidence, notes, analysis, iso, iso);
 }
 
+async function priorGates(db, trendId) {
+  const { results } = await db.prepare("SELECT account, gate_json FROM opportunities WHERE trend_id = ?").bind(trendId).all();
+  return new Map(results.map(r => {
+    try { return [r.account, JSON.parse(r.gate_json || "{}")]; } catch { return [r.account, {}]; }
+  }));
+}
+
 async function evidenceFor(db, trendId) {
   const { results } = await db.prepare("SELECT DISTINCT source_type FROM trend_signals WHERE trend_id = ?").bind(trendId).all();
   return evidenceLabel(results);
@@ -138,12 +146,17 @@ export async function ingestBatch(db, body, now) {
         .bind(id, now.toISOString().slice(0, 10), n(c.snapshot.momentum), n(c.snapshot.volume), n(c.snapshot.competitor_count)));
     }
     const asked = new Set(c.for_accounts || []);
-    const index = phraseIndex(normalise(text));
+    // Judge the stored (capped) text AND the whole incoming text, so the cap can never hide a new exclusion.
+    const full = `${text}\n${gateText(c)}`;
+    const index = phraseIndex(normalise(full));
+    const mixed = hasMixedScript(full);
+    const prior = await priorGates(db, id);
     for (const profile of PROFILES) {
-      const gate = nicheGate({ index }, profile);
-      // Each account is judged on its own. A failed gate is only recorded for the accounts the trend was
-      // found for (so Max can see why); every other account simply never hears of it.
-      if (!gate.passed && !asked.has(profile.key)) continue;
+      const gate = nicheGate({ index, mixed, prior_excluded: prior.get(profile.key)?.excluded }, profile);
+      // Each account is judged on its own. A failed gate is recorded for the accounts the trend was found for
+      // (so Max can see why) and for any account that already has a row (so a pass can't go stale); every
+      // other account simply never hears of it.
+      if (!gate.passed && !asked.has(profile.key) && !prior.has(profile.key)) continue;
       const components = cleanComponents(c.account_components?.[profile.key] ?? c.components);
       stmts.push(opportunityStmt(db, { trendId: id, profile, gate, components, evidence, weights, now }));
       gate.passed ? out.opportunities++ : out.rejected++;
@@ -175,7 +188,7 @@ export async function manualAdd(db, b, now) {
 
 export async function decide(db, id, action, b, now) {
   const o = await db.prepare(
-    "SELECT o.id, o.account, o.status, t.evidence_text FROM opportunities o JOIN trends t ON t.id = o.trend_id WHERE o.id = ?")
+    "SELECT o.id, o.account, o.status, o.gate_json, t.evidence_text FROM opportunities o JOIN trends t ON t.id = o.trend_id WHERE o.id = ?")
     .bind(Number(id)).first();
   if (!o) return { status: 404, error: "not_found" };
   const iso = now.toISOString();
@@ -190,7 +203,9 @@ export async function decide(db, id, action, b, now) {
   if (!["new", "approved", "rejected"].includes(o.status)) return { status: 409, error: "already_" + o.status };
   // Re-run the gate with the account's current profile: an approval can never send an off-niche trend on.
   const profile = getProfile(o.account);
-  const gate = nicheGate({ evidence_text: o.evidence_text || "" }, profile);
+  let prior = {};
+  try { prior = JSON.parse(o.gate_json || "{}"); } catch { /* treat as none */ }
+  const gate = nicheGate({ evidence_text: o.evidence_text || "", prior_excluded: prior.excluded }, profile);
   if (!gate.passed) {
     await db.prepare("UPDATE opportunities SET gate_passed = 0, gate_json = ?, class = 'rejected', score = NULL, updated_at = ? WHERE id = ?")
       .bind(JSON.stringify(gate), iso, o.id).run();

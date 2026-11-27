@@ -69,6 +69,33 @@ test("matching is on whole words, with simple plurals", () => {
   assert.equal(normalise("Mbappé’s  goal!"), " mbappes goal ");
 });
 
+test("invisible characters can't hide an exclusion", () => {
+  const p = getProfile("perc");
+  for (const zw of ["​", "‍", "­", "⁠", "﻿"]) {
+    const g = nicheGate({ name: `Relatable meme POV gif: mur${zw}der on the high street` }, p);
+    assert.equal(g.passed, false, JSON.stringify(zw));
+    assert.deepEqual(g.excluded, ["murder"]);
+  }
+});
+
+test("look-alike letters from another alphabet fail closed", () => {
+  const g = nicheGate({ name: "Relatable meme POV gif: murdеr on the high street" }, getProfile("perc"));  // Cyrillic е
+  assert.equal(g.passed, false);
+  assert.equal(g.mixed, true);
+  assert.match(g.reason, /alphabets/);
+  // Whole words in another script are fine (a French or Japanese title), only mixing inside a word is refused.
+  assert.equal(nicheGate({ name: "Grandmaster checkmate gambit — チェス" }, getProfile("chess")).passed, true);
+});
+
+test("an exclusion seen once stays: later evidence can't clear it", () => {
+  const p = getProfile("buried");
+  const g = nicheGate({ name: "Jury convicts man of cold case murder at crown court", prior_excluded: ["murder mystery game"] }, p);
+  assert.equal(g.passed, false);
+  assert.deepEqual(g.excluded, ["murder mystery game"]);
+  assert.equal(nicheGate({ name: "chess gambit checkmate", prior_excluded: ["murder"] }, getProfile("chess")).passed, true,
+    "a prior exclusion only counts if it is one of this account's own exclusions");
+});
+
 test("an unknown or stopped account has no profile and passes nothing", () => {
   assert.equal(getProfile("eagle"), null);
   assert.equal(getProfile("nope"), null);
