@@ -14,7 +14,11 @@ browser context. Screenshots go in `test/e2e/shots/` (git-ignored). Graph-specif
 | 6 | Live | Three bot cards: Chess, BuriedCasefiles, Escape Cup |
 | 7 | Build a graph | Pick metric/group/chart/split, name it, Save: a new tile appears |
 | 8 | Settings persist | Flip "Posted", reload: it stays flipped (flip it back after) |
-| 9 | Console | No errors except the expected 401 from the signed-out session check |
+| 9 | Trends list | "Waiting for you" shows only new 65+ trends; each chip and More filters change the list; long titles wrap, nothing overlaps at 393 px |
+| 10 | Trend detail | Score, "How the score adds up" bars, "Why it fits this niche", Evidence links; "Over time" chart once 2+ readings |
+| 11 | Approve / Reject | Approve shows "Approved, goes to the next evening review"; Reject moves it to Rejected and it stays there after a reload |
+| 12 | Add one (off-niche) | A trend from another niche is refused with the reason and "The niche stays as it is" |
+| 13 | Console | No errors except the expected 401 from the signed-out session check |
 
 ## Only the real iPhone can check these (record the result and the date)
 

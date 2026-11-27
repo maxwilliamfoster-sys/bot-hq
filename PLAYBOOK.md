@@ -12,6 +12,7 @@ secrets go in `npx wrangler secret put <NAME>` or the GitHub repo secrets only.
 | **Doing well** (good) | `doing_well` | A post is in its bot's top 10% at 1h, 6h or 24h. Sent once per post per age. |
 | **Posted** (quiet) | `posted` | Nothing. Every publish. |
 | **Summary** | `summary` (07:30 UK, pushed), `digest` (chess loop_nightly text, Inbox only) | Read it. |
+| **Trends** (info, Inbox only with "Only when I am needed" on) | `trend_waiting` (new 80+ trends, at most hourly 08:00-21:00 UK), `trend_weekly` (Sundays 09:00 UTC) | Tap **Open the Trends tab**, then approve or reject. |
 
 **Only when I am needed** (Settings, on by default since 2026-11-11): the phone only buzzes for two things, a red
 **Needs you** card (something broke) or a **coach** card (time to go back to Claude). Everything else still lands in
@@ -44,6 +45,35 @@ is why the card asks you to look.
 
 The same failure inside 24 hours becomes one card with a count, pushed on the 1st and 3rd time only.
 `watcher_error` means Bot HQ itself couldn't read GitHub, YouTube or Buffer for one step; it retries every 5 minutes.
+
+## Trends tab: approve or reject
+Each morning the Trend collector finds trends inside each account's own niche. A trend only shows up for an
+account if its evidence names that niche, so a true-crime story never reaches the meme or fox accounts. Nothing
+here can change an account's niche. Setup, sources and limits: [trends/README.md](trends/README.md).
+
+1. Open **Trends**. **Waiting for you** shows new trends scoring 65 or more. The other chips are All, Approved,
+   Testing, Won, Rejected and Didn't fit. **More filters** narrows by account, platform, class or score.
+2. Tap a trend to see its score out of 100, **How the score adds up**, **Why it fits this niche**, **Over time**
+   (momentum each day) and the **Evidence** links. Open the links before you decide.
+3. Tap **Approve** or **Reject**. The reason is optional, and the evening review reads it. A trend you reject
+   stays rejected when it's found again.
+4. An approved trend reads "Approved, goes to the next evening review". That evening it joins the account's idea
+   backlog and waits its turn: the one-main-test rule still holds. Its ideas appear under **Ideas from the evening
+   review**, and its status moves to Testing, then Won, Lost or No difference.
+
+What the labels mean:
+- **Strong** 80+, **Worth testing** 65+, **Watch** 45+, **Weak** below that. **Didn't fit** = failed the niche
+  check (no score).
+- **Rising**, **Speeding up**, **At its peak**, **Getting crowded**, **Fading**, **Back again**, **Gone quiet**
+  (not seen for 14 days). **Too early to tell** = fewer than 3 days of readings.
+- **Live case or allegation:** someone is accused or on trial and there's no verdict in the evidence. Ideas must
+  say "accused" or "alleged", use only what the court has heard, and true-crime videos wait for the verdict.
+- A score ranks trends against each other. It doesn't promise views. The Sunday summary shows how each band
+  actually did in tests.
+
+**Add one** (top of the Trends tab) is for something you spotted yourself, for example on TikTok or Reddit.
+It goes through the same niche check, and if it doesn't fit, it says why and the niche stays as it is. A trend
+you add is always sent to the next evening review for ideas.
 
 ## Add a device (iPhone, iOS 16.4 or newer)
 1. Open the app link in **Safari**, then Share → **Add to Home Screen**.
@@ -88,6 +118,7 @@ npx wrangler secret put APP_EVENTS_TOKEN < .secrets.local
 | TikTok views (BCF, Escape) | Buffer GraphQL, hourly | as fresh as Buffer's own metrics |
 | History, followers, gate logs | `ingest/backfill.py`, nightly at 03:15 UTC (GitHub Action) | daily |
 | Run results | GitHub Actions API, every 5 min | ~5 min |
+| Trends | Trend collector Action (free sources), daily 05:30 UTC; history fit and lifecycle at 05:00 UTC | daily |
 
 Each screen shows "Updated …" or "Views from N ago", so you can see how fresh it is.
 
@@ -110,4 +141,5 @@ Two optional secrets switch parts of this on. Without them those checks skip qui
 - **No pushes at all:** Settings shows "Not connected"? Reconnect. Still nothing: `npx wrangler tail` and fire a test.
 - **Graphs empty:** check the "Nightly backfill" Action ran (`gh run list -w "Nightly backfill"`). Views at 1h/6h/24h/72h fill about 4 hours after each age.
 - **"Bot HQ watcher error":** open it; the step name says which source failed. A rotated key (`YT_API_KEY`, `BUFFER_API_KEY`, `GH_READ_TOKEN`) is the usual cause; re-set it with `wrangler secret put`.
+- **Trends tab empty or a trend looks wrong:** see "When something looks wrong" in [trends/README.md](trends/README.md).
 - **Free-tier limits:** `npx wrangler tail` and look for "Too many subrequests" or "exceeded CPU". The design stays well under them; if they appear, copy the log into Claude.

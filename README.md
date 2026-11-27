@@ -19,12 +19,15 @@ npx wrangler dev  # local
 - **Bots → app:** each bot calls `app_events.emit(...)`, which POSTs to `/api/event` with the bearer `APP_EVENTS_TOKEN`. If the app can't be reached the alert falls back to Telegram, so nothing is lost. Videos still go to Telegram.
 - **Watchers (cron every 5 min):** GitHub Actions runs (failed runs get the log tail in the fix prompt), YouTube stats, Buffer stats (hourly), posting gaps, upload-gate logs, "doing well" milestones, snapshot thinning (03:00 UTC) and the 07:30 UK summary.
 - **Backfill:** `ingest/backfill.py` (GitHub Action, nightly 03:15 UTC) reads the history the bots commit and sends it to `/api/ingest`.
-- **App:** `src/ui/` (vanilla JS + Chart.js, bundled by esbuild into `public/app.js`). Tabs: Inbox, Live, Graphs, Radar, Bots (Progress and Runs), Settings.
+- **Trends:** a daily GitHub Action (`trends/`, 05:30 UTC) finds trends inside each account's own niche from free official sources and sends them to `/api/trends/batch`. The Worker gates each one again against that account's fixed niche, scores it and shows it in the Trends tab. Max approves or rejects it there, and approved trends go into that account's idea backlog at the next evening review. See [trends/README.md](trends/README.md).
+- **App:** `src/ui/` (vanilla JS + Chart.js, bundled by esbuild into `public/app.js`). Tabs: Inbox, Live, Graphs, Radar, Bots (Progress and Runs), Trends, Settings.
 
 | Folder | What's in it |
 |---|---|
 | `src/` | Worker: API routes, auth, events, push, watchers (`src/watch/`), graphs (`query.js`) |
+| `src/trends/` | Trends: niche gate, scoring, storage, history fit and lifecycle, the autopilot hand-off |
 | `src/ui/` | The app screens |
+| `trends/` | The trend collector (Python, GitHub Action) + its tests |
 | `migrations/` | D1 schema |
 | `ingest/` | Backfill script + its tests (`py -m unittest ingest.test_backfill`) |
 | `test/` | `node --test` suite; `test/e2e/` phone-size checklists |

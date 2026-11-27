@@ -215,4 +215,12 @@ What already had tests (phases 1-5) was mapped first; phase 6 added what was mis
   3. Verdicts reported in headline tense ("jury convicts", "judge jails", "jury acquits") were still flagged as live cases. Added `convicts`, `jails`, `acquits` to the settled words (Python and Worker share `text_rules.json`; parity regenerated). "guilty verdict" was deliberately left out: "verdict expected next week" must keep the warning, because a wrong "settled" removes the caution.
 - Totals: 274 JS, 57 collector Python, 86 kit, all passing; UI bundle builds.
 
-### Next: phase 7 (docs: README for the Trends tab and collector, how to switch it on, how the niche gate works, limits)
+### Phase 7: docs (done 2026-11-27)
+- `trends/README.md`: how it fits together (diagram), switching it on, environment variables, sources, the niche gate in numbers, how a trend is scored (with the Trends tab's labels), adding an account, adding a source (official, free, no scraping), when something looks wrong, limits.
+- `PLAYBOOK.md`: the Trends alerts in the alert table, "Trends tab: approve or reject" (phone guide), the Trends data row, troubleshooting pointer.
+- `README.md`: Trends in "How it fits together", the tab list and the folder table.
+- `test/e2e/README.md`: four Trends checks for the phone-size run.
+- Checked against the code as written; three wrong first-draft claims were corrected (what "Audience" measures, where history fit applies, and that weights are changed through the API, not in the app).
+
+## Status
+All 7 phases built on branch `trend-intelligence`, not deployed. Max's steps: merge to main (deploys, migrations 0004-0006), set `TRENDS_POST=on`, run the collector once, optional YouTube key. Not yet checked on a real iPhone: the Trends tab was checked at 375 px in the browser only.
