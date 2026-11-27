@@ -8,3 +8,8 @@ test/e2e/shots/
 .playwright-mcp/
 .secrets.local
 .secrets*
+
+# Trend collector (local runs)
+trends/.cache/
+trends/.state/
+trends/out/

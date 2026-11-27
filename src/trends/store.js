@@ -72,13 +72,13 @@ function mergeText(old, add) {
 async function upsertTrend(db, c, now) {
   const key = dedupeKey(c.name);
   const iso = now.toISOString();
-  const row = await db.prepare("SELECT id, evidence_text, excluded_json FROM trends WHERE dedupe_key = ?").bind(key).first();
+  const row = await db.prepare("SELECT id, evidence_text FROM trends WHERE dedupe_key = ?").bind(key).first();
   const parts = gateText(c).split(" \n ");
   if (row) {
     const text = mergeText(row.evidence_text, parts);
     await db.prepare("UPDATE trends SET last_seen = ?, evidence_text = ?, category = COALESCE(?, category) WHERE id = ?")
       .bind(iso, text, c.category || null, row.id).run();
-    return { id: row.id, text, excluded: parseList(row.excluded_json) };
+    return { id: row.id, text, excluded: await exclusionsFor(db, row.id) };
   }
   const text = mergeText("", parts);
   const r = await db.prepare(
@@ -87,15 +87,14 @@ async function upsertTrend(db, c, now) {
   return { id: r.meta.last_row_id, text, excluded: [] };
 }
 
-function parseList(s) {
-  try { const v = JSON.parse(s || "[]"); return Array.isArray(v) ? v.filter(x => typeof x === "string") : []; }
-  catch { return []; }
+// Every exclusion any account's gate has hit is kept for the trend (table trend_exclusions), apart from the capped
+// text, so it can never be lost to the cap, and it counts for every account (the gate keeps that account's own).
+async function exclusionsFor(db, trendId) {
+  const { results } = await db.prepare("SELECT term FROM trend_exclusions WHERE trend_id = ?").bind(trendId).all();
+  return results.map(r => r.term);
 }
-
-// Every exclusion any account's gate has hit is kept on the trend itself, apart from the capped text, so it can
-// never be lost to the cap, and it counts for every account (the gate keeps only that account's own terms).
-const excludedStmt = (db, trendId, terms) =>
-  db.prepare("UPDATE trends SET excluded_json = ? WHERE id = ?").bind(JSON.stringify([...terms].sort()), trendId);
+const exclusionStmt = (db, trendId, term) =>
+  db.prepare("INSERT OR IGNORE INTO trend_exclusions (trend_id, term) VALUES (?, ?)").bind(trendId, term);
 
 const signalStmt = (db, trendId, s, manual = 0) => db.prepare(
   `INSERT OR IGNORE INTO trend_signals (trend_id, source, source_type, url, title, published_at, fetched_at, metric, value, manual)
@@ -173,7 +172,7 @@ export async function ingestBatch(db, body, now) {
       stmts.push(opportunityStmt(db, { trendId: id, profile, gate, components, evidence, weights, now }));
       gate.passed ? out.opportunities++ : out.rejected++;
     }
-    if (allExcluded.size > excluded.length) stmts.push(excludedStmt(db, id, allExcluded));
+    for (const term of allExcluded) if (!excluded.includes(term)) stmts.push(exclusionStmt(db, id, term));
     if (stmts.length) await db.batch(stmts);
     out.trends++;
   }
@@ -188,8 +187,8 @@ export async function manualAdd(db, b, now) {
   }
   // Max's notes are kept but never count towards the gate: the trend itself has to fit the niche.
   // The trend may already be known: its stored exclusions count too.
-  const known = await db.prepare("SELECT excluded_json FROM trends WHERE dedupe_key = ?").bind(dedupeKey(b.name)).first("excluded_json");
-  const gate = nicheGate({ name: b.name, text: b.text, prior_excluded: parseList(known) }, profile);
+  const knownId = await db.prepare("SELECT id FROM trends WHERE dedupe_key = ?").bind(dedupeKey(b.name)).first("id");
+  const gate = nicheGate({ name: b.name, text: b.text, prior_excluded: knownId ? await exclusionsFor(db, knownId) : [] }, profile);
   if (!gate.passed) return { status: 422, error: "niche_gate", gate };
   const c = { name: b.name, text: b.text };
   const { id } = await upsertTrend(db, c, now);
@@ -203,7 +202,7 @@ export async function manualAdd(db, b, now) {
 
 export async function decide(db, id, action, b, now) {
   const o = await db.prepare(
-    "SELECT o.id, o.account, o.status, o.gate_json, t.evidence_text, t.excluded_json FROM opportunities o JOIN trends t ON t.id = o.trend_id WHERE o.id = ?")
+    "SELECT o.id, o.account, o.status, o.gate_json, o.trend_id, t.evidence_text FROM opportunities o JOIN trends t ON t.id = o.trend_id WHERE o.id = ?")
     .bind(Number(id)).first();
   if (!o) return { status: 404, error: "not_found" };
   const iso = now.toISOString();
@@ -221,7 +220,7 @@ export async function decide(db, id, action, b, now) {
   let prior = {};
   try { prior = JSON.parse(o.gate_json || "{}"); } catch { /* treat as none */ }
   const gate = nicheGate({ evidence_text: o.evidence_text || "",
-    prior_excluded: [...parseList(o.excluded_json), ...(Array.isArray(prior.excluded) ? prior.excluded : [])] }, profile);
+    prior_excluded: [...(await exclusionsFor(db, o.trend_id)), ...(Array.isArray(prior.excluded) ? prior.excluded : [])] }, profile);
   if (!gate.passed) {
     await db.prepare("UPDATE opportunities SET gate_passed = 0, gate_json = ?, class = 'rejected', score = NULL, updated_at = ? WHERE id = ?")
       .bind(JSON.stringify(gate), iso, o.id).run();

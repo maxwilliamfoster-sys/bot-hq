@@ -71,7 +71,7 @@ test("matching is on whole words, with simple plurals", () => {
 
 test("invisible characters can't hide an exclusion", () => {
   const p = getProfile("perc");
-  for (const zw of ["​", "‍", "­", "⁠", "﻿"]) {
+  for (const zw of ["\u200b", "\u200d", "\u00ad", "\u2060", "\ufeff"]) {
     const g = nicheGate({ name: `Relatable meme POV gif: mur${zw}der on the high street` }, p);
     assert.equal(g.passed, false, JSON.stringify(zw));
     assert.deepEqual(g.excluded, ["murder"]);
@@ -80,7 +80,7 @@ test("invisible characters can't hide an exclusion", () => {
 
 test("rarer combining marks, variation selectors and ignorable characters can't split an exclusion", () => {
   const p = getProfile("perc");
-  for (const ch of ["⃐", "᪰", "️", "\u{e0100}", "⁤", "᠋"]) {
+  for (const ch of ["\u20d0", "\u1ab0", "\ufe0f", "\u{e0100}", "\u2064", "\u180b"]) {
     const g = nicheGate({ name: `Relatable meme POV gif: mur${ch}der on the high street` }, p);
     assert.deepEqual(g.excluded, ["murder"], JSON.stringify(ch));
   }
@@ -90,6 +90,18 @@ test("a whole word spelled in look-alike letters still hits the exclusion", () =
   const g = nicheGate({ name: "Relatable meme POV gif: ԁеаԁ funny" }, getProfile("perc"));  // Cyrillic ԁ е а ԁ
   assert.equal(g.passed, false);
   assert.deepEqual(g.excluded, ["dead"]);
+});
+
+test("letters left over from an alphabet with Latin look-alikes fail closed; other alphabets are fine", () => {
+  const cp = (...c) => String.fromCodePoint(...c);
+  for (const word of [cp(0x436, 0x438, 0x437, 0x43d, 0x44c), cp(0x540, 0x561, 0x575), cp(0x13a0, 0x13a1), cp(0x3bb, 0x3be)]) {
+    const g = nicheGate({ name: `Grandmaster checkmate gambit ${word}` }, getProfile("chess"));
+    assert.equal(g.passed, false, word);
+    assert.equal(g.mixed, true, word);
+  }
+  for (const word of [cp(0x30c1, 0x30a7, 0x30b9), cp(0x634, 0x637, 0x631, 0x646, 0x62c), cp(0x4e2d, 0x6587)]) {
+    assert.equal(nicheGate({ name: `Grandmaster checkmate gambit ${word}` }, getProfile("chess")).passed, true, word);
+  }
 });
 
 test("look-alike letters from another alphabet fail closed", () => {

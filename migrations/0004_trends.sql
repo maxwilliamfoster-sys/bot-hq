@@ -9,11 +9,18 @@ CREATE TABLE trends (
   category TEXT,
   lifecycle TEXT NOT NULL DEFAULT 'new',
   evidence_text TEXT,            -- name + evidence titles (capped), so the gate can be re-run on approval
-  excluded_json TEXT,            -- every exclusion term any account's gate ever hit (kept apart from the cap)
   first_seen TEXT NOT NULL,
   last_seen TEXT NOT NULL
 );
 CREATE INDEX trends_last_seen ON trends (last_seen);
+
+-- Every exclusion term any account's gate ever hit for a trend, kept apart from the capped evidence_text so it
+-- can never be lost. Insert-only (INSERT OR IGNORE), so two batches at once can't overwrite each other.
+CREATE TABLE trend_exclusions (
+  trend_id INTEGER NOT NULL,
+  term TEXT NOT NULL,
+  PRIMARY KEY (trend_id, term)
+);
 
 -- Evidence: every source a trend was seen in, with the original link and its times. Never edited after insert.
 CREATE TABLE trend_signals (

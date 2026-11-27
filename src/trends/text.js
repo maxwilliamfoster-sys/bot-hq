@@ -1,21 +1,14 @@
 // Text matching for the niche gate: lower case, no accents or punctuation, whole words only.
+// The look-alike table is shared with the Python collector (trends/text_rules.json).
+import RULES from "../../trends/text_rules.json" with { type: "json" };
 // Invisible format characters (zero-width space/joiner, soft hyphen, BOM...) are deleted, not turned into spaces,
-// so "mur​der" still reads as "murder" and can't slip past an exclusion.
-const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}­͏ᅟᅠ឴឵᠎ㅤﾠ︀-️]/gu;
+// so "mur<zero-width space>der" still reads as "murder" and can't slip past an exclusion.
+const INVISIBLE = /[\p{Cf}\p{Default_Ignorable_Code_Point}\u00ad\u034f\u115f\u1160\u17b4\u17b5\u180e\u3164\uffa0\ufe00-\ufe0f]/gu;
 const MARKS = /\p{M}/gu;     // every combining mark after NFKD, not only the basic accents
 
 // Look-alike letters from other alphabets mapped to the Latin letter they imitate (a confusables skeleton for
 // the scripts that can spell English words), so a whole word in Cyrillic look-alikes still hits an exclusion.
-const CONFUSABLE = {
-  "а": "a", "в": "b", "с": "c", "е": "e", "ё": "e", "һ": "h", "і": "i", "ї": "i", "ј": "j", "к": "k", "м": "m",
-  "н": "h", "о": "o", "р": "p", "ԛ": "q", "ѕ": "s", "т": "t", "у": "y", "х": "x", "ԁ": "d", "ԝ": "w", "ɡ": "g",
-  "А": "a", "В": "b", "С": "c", "Е": "e", "Н": "h", "І": "i", "Ј": "j", "К": "k", "М": "m", "О": "o", "Р": "p",
-  "Ѕ": "s", "Т": "t", "Х": "x", "У": "y",
-  "α": "a", "β": "b", "ε": "e", "η": "n", "ι": "i", "κ": "k", "ν": "v", "ο": "o", "ρ": "p", "τ": "t", "υ": "u",
-  "χ": "x", "ω": "w", "Α": "a", "Β": "b", "Ε": "e", "Ζ": "z", "Η": "h", "Ι": "i", "Κ": "k", "Μ": "m", "Ν": "n",
-  "Ο": "o", "Ρ": "p", "Τ": "t", "Υ": "y", "Χ": "x",
-  "ı": "i", "ȷ": "j", "ł": "l", "ø": "o", "đ": "d", "ħ": "h", "ß": "ss", "æ": "ae", "œ": "oe",
-};
+const CONFUSABLE = RULES.confusables;
 const CONFUSABLE_RE = new RegExp(`[${Object.keys(CONFUSABLE).join("")}]`, "gu");
 
 const clean = s => String(s ?? "").replace(INVISIBLE, "").normalize("NFKD").replace(MARKS, "");
@@ -30,11 +23,14 @@ export function normalise(s) {
   return t ? ` ${t} ` : " ";
 }
 
-// A word mixing Latin with another script's letters (Cyrillic "а" inside "murder") is a look-alike trick or
-// garbage. The gate fails closed on it rather than guess.
+// Fail closed on look-alike tricks: (1) a word mixing Latin with another script's letters (Cyrillic "a" inside
+// "murder"), or (2) any letter left over, after the look-alike map, from an alphabet that has Latin look-alikes
+// (an unmapped one could spell an exclusion). Alphabets with no Latin look-alikes (Japanese, Arabic...) are fine.
+const LOOKALIKE_SCRIPT = /[\p{Script=Cyrillic}\p{Script=Greek}\p{Script=Armenian}\p{Script=Cherokee}\p{Script=Coptic}\p{Script=Lisu}\p{Script=Canadian_Aboriginal}]/u;
 export function hasMixedScript(s) {
-  const words = clean(s).split(/[^\p{L}\p{N}]+/u);
-  return words.some(w => /[a-z]/i.test(w) && /[^\p{Script=Latin}\p{N}]/u.test(w));
+  const c = clean(s);
+  if (LOOKALIKE_SCRIPT.test(c.replace(CONFUSABLE_RE, ch => CONFUSABLE[ch]))) return true;
+  return c.split(/[^\p{L}\p{N}]+/u).some(w => /[a-z]/i.test(w) && /[^\p{Script=Latin}\p{N}]/u.test(w));
 }
 
 // Profile terms are fixed, so each is normalised once (the Worker has 10 ms of CPU per request).

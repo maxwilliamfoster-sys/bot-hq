@@ -23,7 +23,7 @@ export function nicheGate(candidate, profile) {
     .filter(t => profile.exclude.includes(t));
   if (mixed) {
     return { passed: false, relevance: 0, anchors, related: [], excluded, mixed: true,
-      reason: "text mixes alphabets inside a word (look-alike letters); check it by hand" };
+      reason: "text mixes alphabets inside a word or uses look-alike letters; check it by hand" };
   }
   // Related words only count when they are not part of a matched anchor phrase ("carlsen" in "magnus carlsen").
   const related = termHits(text, profile.related).filter(r => !anchors.some(a => normTerm(a).includes(normTerm(r))));
