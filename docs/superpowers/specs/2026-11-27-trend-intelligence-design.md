@@ -192,7 +192,7 @@ Create a free Google Cloud project, turn on YouTube Data API v3 and make an API 
 - Tests: 271 JS (9 new in `trends_pipeline.test.js`), 50 collector Python, 82 kit (12 new in `autopilot/tests/test_trends.py`). A contract check fed a real Worker queue into kit.apply_queue and the brief. Browser check at 375 px on the local Worker: hand-off status, test note, ideas with risks, live case.
 - Change logged in `tracker_log.json` (Bot HQ Progress updated).
 
-#### Proposed ROUTINE.md addition (waiting for Max's OK; not applied)
+#### ROUTINE.md addition (Max approved it 2026-11-27; applied)
 In step 1, after the dossier bullet:
 > - `py autopilot/kit.py trends KEY`: trends Max approved in Bot HQ for this account (already queued in the idea backlog) and up to 3 strong trends that want ideas. They are inside this account's fixed niche; never change the niche to fit a trend. For each one under "Want ideas", write up to 3 original ideas in this account's own format from the listed evidence only (step 4's rules: never copy a video), save them as JSON and run `kit.py trend-ideas ID FILE.json`. A LIVE CASE idea must say "accused" or "alleged", use only what the court has heard, and true-crime videos wait for the verdict.
 
@@ -202,7 +202,17 @@ In step 5, after the idea-backlog bullet:
 ### To switch it on (each needs Max's OK)
 1. Merge `trend-intelligence` into main: the deploy workflow runs the tests, applies migrations 0004-0006 to the live D1 and deploys.
 2. Set the repository variable `TRENDS_POST` to `on` (Settings > Secrets and variables > Actions > Variables), then run the Trend collector once by hand.
-3. Approve the ROUTINE.md addition above.
-4. Optional: the free YouTube key (`YT_TREND_API_KEY`), which fills "Similar videos" and "Room to stand out".
+3. Optional: the free YouTube key (`YT_TREND_API_KEY`), which fills "Similar videos" and "Room to stand out".
 
-### Next: phase 6 (testing: every account pair through the gate, account separation, a source failing, quota cap, dedupe, scoring, persistence, all existing tests)
+### Phase 6: testing (done 2026-11-27)
+What already had tests (phases 1-5) was mapped first; phase 6 added what was missing:
+- `test/trends_matrix.test.js`, end to end through the Worker: every niche sample offered to every account is usable for exactly its own accounts and stored only as a refusal (no score) for the rest; a trend two accounts share (niche + escape) stays separate through approve, queue, hand-off, ideas, reject and test result; Max's decision, the hand-off, ideas and a running test survive re-collection and daily upkeep, an expired trend asks for no new ideas, and a test that outlives its trend can still record its result. The samples now live in `test/fixtures/trend_samples.js`, shared with the gate test.
+- `trends/tests/test_persistence.py`: state file round trip (atomic) and a missing, corrupt or old-version file starting fresh; the YouTube sources share one daily ledger and never pass the cap; quota spent earlier today counts in the next run; the cap resets the next day and the ledger keeps about a week; Bot HQ down fails the run (exit 1) but keeps the state; no key or token ever reaches the report.
+- `autopilot/tests/test_trends.py` (+4): Bot HQ unreachable is status 0 with no token; `pick --run` carries on; `trends KEY` still writes the brief (with the backlog trend ideas) when the queue is down or not deployed; `trend-result ID testing` sends no note.
+- Bugs the tests found, fixed:
+  1. The collector's report (uploaded as an artifact on a public repo, where GitHub does not mask secrets) could include a token if an error message contained one. `redact` now hides `Bearer` values and the actual key and token values too.
+  2. `kit.py` crashed with a traceback when Bot HQ couldn't be reached, and `trends KEY` stopped the review on any non-200. Until the deploy that is every run (the route is a 404), so step 1 of the routine would have failed nightly. Both now carry on.
+  3. Verdicts reported in headline tense ("jury convicts", "judge jails", "jury acquits") were still flagged as live cases. Added `convicts`, `jails`, `acquits` to the settled words (Python and Worker share `text_rules.json`; parity regenerated). "guilty verdict" was deliberately left out: "verdict expected next week" must keep the warning, because a wrong "settled" removes the caution.
+- Totals: 274 JS, 57 collector Python, 86 kit, all passing; UI bundle builds.
+
+### Next: phase 7 (docs: README for the Trends tab and collector, how to switch it on, how the niche gate works, limits)

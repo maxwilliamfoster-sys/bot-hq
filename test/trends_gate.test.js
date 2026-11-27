@@ -5,26 +5,7 @@ import { nicheGate, MIN_RELEVANCE } from "../src/trends/gate.js";
 import { PROFILES, getProfile } from "../src/trends/profiles.js";
 import { normalise, termHits } from "../src/trends/text.js";
 import { dedupeKey } from "../src/trends/dedupe.js";
-
-// One clearly niche-typical headline per niche, and exactly which accounts it may reach.
-const SAMPLES = [
-  ["Gukesh defends world chess championship title against Carlsen", ["chess"]],
-  ["Crown court jury convicts man of 1998 cold case murder after DNA breakthrough", ["buried"]],
-  ["James Webb telescope captures new image of the Pillars of Creation nebula", ["space"]],
-  ["England name World Cup qualifier squad as Bellingham returns", ["niche", "escape"]],
-  ["Boiler Room announces UK garage night in London", ["niche"]],
-  ["Satisfying marble race: countryballs escape the ring", ["escape"]],
-  ["New POV meme format takes over GifTok", ["perc"]],
-  ["Councils switch to three-weekly bin collection as urban fox sightings rise", ["gary"]],
-  ["What if Earth was 100 times bigger? Size comparison animation", ["bodge"]],
-  // Unrelated niches: nobody may receive these.
-  ["Fortnite new season live event breaks player records", []],
-  ["75 Hard gym workout challenge returns for January", []],
-  ["Prime Minister announces spring budget tax changes", []],
-  ["Minecraft murder mystery game update released", []],
-  ["Christmas market attack: police investigate", []],
-  ["Samsung Galaxy S27 launch date leaked", []],
-];
+import { SAMPLES } from "./fixtures/trend_samples.js";
 
 test("every niche sample reaches exactly its own accounts and no others", () => {
   for (const [text, allowed] of SAMPLES) {

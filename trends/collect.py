@@ -32,7 +32,10 @@ class Ctx:
         self.status_override = {}
 
     def note(self, source, msg):
-        self.notes.setdefault(source, []).append(redact(msg))
+        self.notes.setdefault(source, []).append(redact(msg, *self.secrets()))
+
+    def secrets(self):
+        return [self.env.get(k) for k in ("YT_TREND_API_KEY", "APP_EVENTS_TOKEN")]
 
     def cutoff(self, days):
         return (self.now - timedelta(days=days)).strftime("%Y-%m-%d")
@@ -49,7 +52,7 @@ def run_sources(ctx, modules):
         except Skipped as e:
             status[m.NAME] = {"status": "skipped", "signals": 0, "reason": str(e)}
         except Exception as e:      # one source failing never stops the others
-            status[m.NAME] = {"status": "failed", "signals": 0, "reason": redact(f"{type(e).__name__}: {e}")[:300]}
+            status[m.NAME] = {"status": "failed", "signals": 0, "reason": redact(f"{type(e).__name__}: {e}", *ctx.secrets())[:300]}
         status[m.NAME]["seconds"] = round(time.monotonic() - t0, 1)
         if ctx.notes.get(m.NAME):
             status[m.NAME]["notes"] = ctx.notes[m.NAME]
@@ -142,7 +145,7 @@ def main(argv=None, env=None, http=None, modules=None, now=None, out_dir=None, s
                 report["post"] = post(cands, url, token, **({"opener": opener} if opener else {}))
                 report["posted"] = True
             except (urllib.error.URLError, OSError, ValueError) as e:
-                report["post"] = {"error": redact(f"{type(e).__name__}: {e}")[:300]}
+                report["post"] = {"error": redact(f"{type(e).__name__}: {e}", token)[:300]}
                 code = 1
     state_mod.save(state_path, ctx.state)
     out_dir.mkdir(parents=True, exist_ok=True)

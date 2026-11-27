@@ -32,10 +32,17 @@ class QuotaExceeded(Exception):
 
 
 _SECRET = re.compile(r"(?i)([?&](?:key|api_key|apikey|token|access_token)=)[^&#]*")
+_BEARER = re.compile(r"(?i)(bearer\s+)[^\s'\"]+")
 
 
-def redact(url):
-    return _SECRET.sub(r"\1REDACTED", str(url))
+def redact(text, *secrets):
+    """Hide query-string keys, Bearer values and any secret passed in (the report is uploaded as an artifact,
+    and GitHub only masks secrets in logs, not in artifacts)."""
+    out = _BEARER.sub(r"\1REDACTED", _SECRET.sub(r"\1REDACTED", str(text)))
+    for s in secrets:
+        if s and len(s) >= 4:
+            out = out.replace(s, "REDACTED")
+    return out
 
 
 class Http:

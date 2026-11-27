@@ -18,6 +18,12 @@ test("allegations are flagged until the evidence has a verdict", () => {
   assert.deepEqual(flagsFor("Grandmaster accused of cheating"), ["active_case"]);
   assert.deepEqual(flagsFor("Man accused of murder.\nMan found guilty of murder and jailed for life"), []);
   assert.deepEqual(flagsFor("Woman acquitted of all charges"), []);
+  // Headline tense: a verdict reported as "convicts" / "jails" / "acquits" is settled too.
+  assert.deepEqual(flagsFor("Crown court jury convicts man of 1998 cold case murder"), []);
+  assert.deepEqual(flagsFor("Judge jails man accused in pub stabbing"), []);
+  assert.deepEqual(flagsFor("Jury acquits nurse on trial over hospital deaths"), []);
+  assert.deepEqual(flagsFor("Jury told man denies murder; verdict expected next week"), ["active_case"],
+    "a verdict still to come keeps the warning");
   assert.deepEqual(flagsFor("New nebula photo from Hubble"), []);
 });
 

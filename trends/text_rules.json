@@ -234,13 +234,16 @@
   ],
   "settled": [
    "convicted",
+   "convicts",
    "found guilty",
    "guilty of",
    "sentenced",
    "jailed",
+   "jails",
    "life sentence",
    "whole life",
    "acquitted",
+   "acquits",
    "found not guilty",
    "cleared of"
   ]
