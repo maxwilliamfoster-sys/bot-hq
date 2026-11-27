@@ -264,6 +264,7 @@ function itemOut(r) {
     name: r.name, category: r.category, lifecycle: r.lifecycle, flags: parseFlags(r.flags), first_seen: r.first_seen, last_seen: r.last_seen,
     score: r.score, class: r.class, evidence: r.evidence, status: r.status, status_reason: r.status_reason,
     notes: r.notes, analysis_requested: r.analysis_requested, updated_at: r.updated_at,
+    handed_at: r.handed_at ?? null, outcome_note: r.outcome_note ?? null,
     missing: COMPONENTS.filter(k => !Number.isFinite(components[k])),
   };
 }

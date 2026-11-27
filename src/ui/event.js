@@ -6,6 +6,7 @@ const SEV = { action: ["Needs you", "sev-action"], warn: ["Failed or blocked", "
 function whatToDo(e) {
   if (e.kind === "radar_weekly") return "Open the Radar tab, tap Copy prompt for Claude and paste it into Claude. When Claude has chosen the tests, tap Mark done.";
   if (e.kind === "coach") return "Do the quick checks listed in the message (they are things only you can see in the TikTok or YouTube app), type what you saw after each arrow, then paste the whole message into Claude. When Claude has made the change, tap Mark done.";
+  if (e.kind === "trend_waiting") return "Open the Trends tab and approve or reject each one. Approved trends go into that account's idea backlog at the next evening review.";
   if (e.kind === "run_failed") return "Copy the fix prompt and paste it into Claude. It has the failed step, the end of the log and the rules to follow.";
   if (e.fix_prompt && (e.severity === "action" || e.severity === "warn")) {
     return "Copy the fix prompt and paste it into Claude. When it's fixed, tap Mark done.";
@@ -68,6 +69,7 @@ export async function eventView({ arg, setTabCount }) {
       e.data.step ? el("p", { class: "muted" }, `Failed step: ${e.data.step}`) : null),
     todo ? el("section", { class: "block" }, el("h3", {}, "What to do"), el("p", {}, todo)) : null,
     e.kind === "radar_weekly" ? el("a", { class: "btn btn-primary btn-block btn-copy", href: "#/radar" }, "Open the Radar tab") : null,
+    e.kind?.startsWith("trend_") ? el("a", { class: "btn btn-primary btn-block btn-copy", href: "#/trends" }, "Open the Trends tab") : null,
     links(e.data).length ? el("div", { class: "btn-row" }, links(e.data)) : null,
     pre ? el("section", { class: "block" }, el("h3", {}, "Fix prompt"), pre) : null,
     e.resolved ? el("p", { class: "muted" }, "Done.") : (e.severity === "action" || e.severity === "warn" ? done : null));

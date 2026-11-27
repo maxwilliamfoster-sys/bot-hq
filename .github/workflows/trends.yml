@@ -1,7 +1,8 @@
 name: Trend collector
 
-# Daily: fetch the free trend sources, build niche-gated candidates and write a report.
-# DRY RUN for now: nothing is sent to Bot HQ until posting is switched on (phase 6 of the trends design).
+# Daily: fetch the free trend sources, build niche-gated candidates, write a report and send them to Bot HQ.
+# Sending is off until the repository variable TRENDS_POST is "on" (set it once the Worker with migrations
+# 0004-0006 is deployed). Until then it is a dry run; the report is the same either way.
 on:
   schedule:
     - cron: '30 5 * * *'
@@ -31,10 +32,15 @@ jobs:
           path: trends/.state
           key: trends-state-${{ github.run_id }}
           restore-keys: trends-state-
-      - name: Collect (dry run)
+      # APP_URL and the token also let the collector read the competitor watchlist (GET /api/trends/context).
+      - name: Collect
         env:
           YT_TREND_API_KEY: ${{ secrets.YT_TREND_API_KEY }}
-        run: python -m trends.collect
+          APP_URL: https://bot-hq.maxwilliamfoster.workers.dev
+          APP_EVENTS_TOKEN: ${{ secrets.APP_EVENTS_TOKEN }}
+          TRENDS_POST: ${{ vars.TRENDS_POST }}
+        run: |
+          if [ "$TRENDS_POST" = "on" ]; then python -m trends.collect --post; else python -m trends.collect; fi
       - name: Report
         if: always()
         run: test -f trends/out/report.md && cat trends/out/report.md >> "$GITHUB_STEP_SUMMARY" || true

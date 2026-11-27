@@ -78,7 +78,7 @@ export async function openActionCount(db) {
   return db.prepare("SELECT COUNT(*) AS n FROM events WHERE severity = 'action' AND resolved_at IS NULL").first("n");
 }
 
-export const pushUrl = (event, id) => (event.kind === "radar_weekly" ? "/#/radar" : `/#/event/${id}`);
+export const pushUrl = (event, id) => (event.kind === "radar_weekly" ? "/#/radar" : event.kind?.startsWith("trend_") ? "/#/trends" : `/#/event/${id}`);
 
 // Record an already-validated event and push it if the rules say so.
 export async function processEvent(env, event, now = new Date(), fetchFn) {

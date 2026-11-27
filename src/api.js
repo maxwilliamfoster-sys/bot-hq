@@ -14,6 +14,7 @@ import { validTracker, saveTracker, trackerData } from "./tracker.js";
 import { ingestBatch, manualAdd, decide, listOpportunities, trendDetail, overview, getWeights, putWeights } from "./trends/store.js";
 import { getProfile } from "./trends/profiles.js";
 import { collectorContext } from "./trends/intel.js";
+import { queue, markHanded, addIdeas, setOutcome } from "./trends/pipeline.js";
 
 const MAX_BODY = 512 * 1024;
 
@@ -175,6 +176,24 @@ export const routes = [
   }],
   ["POST", /^\/api\/trends\/opportunities\/(\d+)\/(approve|reject)$/, "session", async ({ env, body, params }) => {
     const { status, status_now, ...r } = await decide(env.DB, params[0], params[1], body, clock(env));
+    return json(status_now ? { ...r, status: status_now } : r, status);
+  }],
+  // The evening autopilot (kit.py on the PC, bot credential): what to take, what it took, ideas, test results.
+  ["GET", "/api/trends/queue", "bot", async ({ env, url }) => {
+    const account = url.searchParams.get("account");
+    if (account && !getProfile(account)) return json({ error: "bad_account" }, 400);
+    return json(await queue(env.DB, account, clock(env)));
+  }],
+  ["POST", /^\/api\/trends\/opportunities\/(\d+)\/handed$/, "bot", async ({ env, params }) => {
+    const { status, ...r } = await markHanded(env.DB, params[0], clock(env));
+    return json(r, status);
+  }],
+  ["POST", /^\/api\/trends\/opportunities\/(\d+)\/ideas$/, "bot", async ({ env, body, params }) => {
+    const { status, ...r } = await addIdeas(env.DB, params[0], body, clock(env));
+    return json(r, status);
+  }],
+  ["POST", /^\/api\/trends\/opportunities\/(\d+)\/outcome$/, "bot", async ({ env, body, params }) => {
+    const { status, status_now, ...r } = await setOutcome(env.DB, params[0], body, clock(env));
     return json(status_now ? { ...r, status: status_now } : r, status);
   }],
 

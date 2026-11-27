@@ -11,6 +11,7 @@ import { thinPlan } from "./thin.js";
 import { refreshGate } from "./watch/gate.js";
 import { weeklyRadarCheck } from "./radar.js";
 import { trendUpkeep } from "./trends/intel.js";
+import { trendAlerts, trendWeekly } from "./trends/pipeline.js";
 import { viewHealth, coachEvent, reviewEvent, PLAYBOOK, REVIEW_EVERY_DAYS } from "./coach.js";
 
 const H = 3600e3;
@@ -316,6 +317,8 @@ export async function runSchedule(event, env, ctx, fetchFn = fetch, now = new Da
     await step(env, now, "gate logs", () => refreshGate(env, db, fetchFn, now));
     const ukH = ukParts(now).hhmm;
     if (ukH >= "08:00" && ukH < "21:00") await step(env, now, "radar reminder", () => weeklyRadarCheck(env, db, fetchFn, now));
+    if (ukH >= "08:00" && ukH < "21:00") await step(env, now, "strong trends", () => trendAlerts(env, db, now));
+    if (now.getUTCDay() === 0 && now.getUTCHours() === 9) await step(env, now, "trends weekly", () => trendWeekly(env, db, now));
   }
   await step(env, now, "doing well", () => checkDoingWell(env, db, now, hourly));
   if (now.getUTCHours() === 3 && hourly) await step(env, now, "thinning", () => thinSnapshots(db, now));

@@ -178,4 +178,31 @@ Create a free Google Cloud project, turn on YouTube Data API v3 and make an API 
 - Checked at 375 x 812 in dark and light mode against the local dev Worker with 61 real candidates from the last dry run (scored by the real Worker code): list, filters, detail, chart, approve, reject, refusal of an off-niche trend, adding one that fits. Test rows and the test session removed afterwards. The local D1 had an old copy of migration 0004 (before the exclusions table); its empty trend tables were rebuilt from 0004 + 0005. Production D1 has neither yet.
 - Tests: 262 JS and 50 Python still pass. No UI unit tests (none exist for the other tabs); phase 6 adds tests.
 
-### Next: phase 5 (automation: the Action posts batches and reads /api/trends/context, approved trends handed to the autopilot review, `kit.py trends-pull`, ROUTINE.md change only with Max's OK)
+### Phase 5: automation (done 2026-11-27, not deployed)
+- Worker `src/trends/pipeline.js`, bot credential only:
+  - `GET /api/trends/queue[?account=]`: `approved` (approved, not yet handed over), `analyse` (up to 3 that want ideas: Max asked for analysis or scored 80+, no ideas yet, not expired), `withdrawn` (rejected after the hand-off, last 30 days). Each item carries the niche, locked rules, flags, Max's notes and reason, and up to 5 evidence links with ids (manual and Claude signals are never evidence).
+  - `POST /api/trends/opportunities/:id/handed` (approved only, idempotent).
+  - `POST .../ideas` {ideas: up to 3}: refused for a failed-gate trend; a live case needs a written risk; evidence ids must be this trend's signals; at most 9 per trend; the account's locked rules are added to every idea's risks.
+  - `POST .../outcome` {status, note}: approved -> testing -> won / lost / no_difference. A finished result can't change, and Max can't reject a trend once it is being tested.
+- Migration 0006: `opportunities.handed_at`, `outcome_note`, `notified_at`. Applied to the local D1 only.
+- Hourly (08:00-21:00 UK): one Inbox item when new 80+ trends are waiting (`trend_waiting`, severity info, so with "only when I am needed" on it stays in the Inbox and never buzzes the phone). Sundays 09:00 UTC: `trend_weekly`, found / approved / rejected and results by score band ("80+: won 2 of 5"). Both open the Trends tab.
+- Trends tab: "Approved, goes to the next evening review" / "in the idea backlog since ...", the test note, "Being tested by the autopilot", and ideas with hook, format, length, why and a "Watch out" list.
+- Action `trends.yml`: same daily run; posts only when the repository variable `TRENDS_POST` is `on` (dry run until then). It now gets APP_URL (already public in ingest.yml) and the existing `APP_EVENTS_TOKEN` secret, so it can read the competitor watchlist once the Worker is deployed.
+- PC `analytics-check/autopilot/kit.py` (no git repo; backup taken first): `trends-pull` (also run by `pick --run` at the start of each scheduled run, never fatal), `trends KEY` (brief: backlog trend ideas, approved, up to 3 wanting ideas, evidence ids, live-case warning, fixed niche and locked rules), `trend-ideas ID FILE.json`, `trend-result ID status ["note"]`. Approved trends become `queued (approved trend)` ideas with `trend_opportunity`; the autopilot's normal rules (one main test) decide when one is tested. A rejection after the hand-off parks the idea.
+- Tests: 271 JS (9 new in `trends_pipeline.test.js`), 50 collector Python, 82 kit (12 new in `autopilot/tests/test_trends.py`). A contract check fed a real Worker queue into kit.apply_queue and the brief. Browser check at 375 px on the local Worker: hand-off status, test note, ideas with risks, live case.
+- Change logged in `tracker_log.json` (Bot HQ Progress updated).
+
+#### Proposed ROUTINE.md addition (waiting for Max's OK; not applied)
+In step 1, after the dossier bullet:
+> - `py autopilot/kit.py trends KEY`: trends Max approved in Bot HQ for this account (already queued in the idea backlog) and up to 3 strong trends that want ideas. They are inside this account's fixed niche; never change the niche to fit a trend. For each one under "Want ideas", write up to 3 original ideas in this account's own format from the listed evidence only (step 4's rules: never copy a video), save them as JSON and run `kit.py trend-ideas ID FILE.json`. A LIVE CASE idea must say "accused" or "alleged", use only what the court has heard, and true-crime videos wait for the verdict.
+
+In step 5, after the idea-backlog bullet:
+> - An approved trend is a backlog idea like any other: it never jumps the one-main-test rule or breaks a running test. When one becomes the test, `kit.py trend-result ID testing`; when the test is judged, `kit.py trend-result ID won|lost|no_difference "one line"`.
+
+### To switch it on (each needs Max's OK)
+1. Merge `trend-intelligence` into main: the deploy workflow runs the tests, applies migrations 0004-0006 to the live D1 and deploys.
+2. Set the repository variable `TRENDS_POST` to `on` (Settings > Secrets and variables > Actions > Variables), then run the Trend collector once by hand.
+3. Approve the ROUTINE.md addition above.
+4. Optional: the free YouTube key (`YT_TREND_API_KEY`), which fills "Similar videos" and "Room to stand out".
+
+### Next: phase 6 (testing: every account pair through the gate, account separation, a source failing, quota cap, dedupe, scoring, persistence, all existing tests)

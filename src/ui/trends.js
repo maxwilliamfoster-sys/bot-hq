@@ -227,21 +227,34 @@ function gateBlock(o) {
       el("ul", { class: "coach-list" }, o.locked_rules.map(r => el("li", {}, r)))) : null);
 }
 
+// Written by the evening review (kit.py trend-ideas). Ideas are suggestions, never evidence.
 function ideasBlock(o) {
   if (!o.ideas.length) return null;
-  const text = i => ["title", "hook", "angle", "format", "why"].map(k => (typeof i[k] === "string" ? i[k] : null)).filter(Boolean);
-  return el("section", { class: "section-sm" }, el("h4", {}, "Ideas"),
-    el("ul", { class: "coach-list" }, o.ideas.map(i => {
-      const [first, ...rest] = text(i);
-      return el("li", {}, el("strong", {}, first || "Idea"), rest.length ? el("span", { class: "muted" }, ` ${rest.join(" ")}`) : null);
-    })));
+  const s = v => (typeof v === "string" && v.trim() ? v : null);
+  return el("section", { class: "section-sm" }, el("h4", {}, "Ideas from the evening review"),
+    el("ul", { class: "coach-list" }, o.ideas.map(i => el("li", {},
+      el("strong", {}, s(i.title) || "Idea"),
+      s(i.hook) ? el("div", {}, `Hook: ${i.hook}`) : null,
+      [s(i.format), s(i.duration)].some(Boolean) ? el("div", { class: "muted small" }, [s(i.format), s(i.duration)].filter(Boolean).join(", ")) : null,
+      s(i.storytelling) ? el("div", { class: "muted small" }, i.storytelling) : null,
+      s(i.why) ? el("div", { class: "muted small" }, `Why: ${i.why}`) : null,
+      s(i.platform_notes) ? el("div", { class: "muted small" }, i.platform_notes) : null,
+      Array.isArray(i.risks) && i.risks.length ? el("div", { class: "small sev-warn" }, "Watch out:",
+        el("ul", { class: "coach-list" }, i.risks.map(r => el("li", {}, r)))) : null))));
+}
+
+function statusLine(o) {
+  if (o.status === "approved" && o.handed_at) return `Approved, in the idea backlog since ${ago(o.handed_at)}`;
+  if (o.status === "approved") return "Approved, goes to the next evening review";
+  return STATUS[o.status] || o.status;
 }
 
 function decision(o, done) {
   if (o.class === "rejected") {
     return el("p", { class: "sev-warn" }, `${gateText(o.gate, short(o.account_name))} It can't be approved for this account.`);
   }
-  if (!DECIDABLE.includes(o.status)) return el("p", { class: "muted" }, `${STATUS[o.status] || o.status}. The test's result is kept, so it can't be changed here.`);
+  if (o.status === "testing") return el("p", { class: "muted" }, "Being tested by the autopilot. The result shows here when the test is judged.");
+  if (!DECIDABLE.includes(o.status)) return el("p", { class: "muted" }, `Tested: ${(STATUS[o.status] || o.status).toLowerCase()}. Results are kept, so this can't be changed.`);
   const reason = el("input", { class: "input", maxlength: 300, placeholder: "Reason (optional)", "aria-label": `Reason for ${o.account_name}` });
   const act = action => async () => {
     for (const b of buttons.querySelectorAll("button")) b.disabled = true;
@@ -262,7 +275,8 @@ function decision(o, done) {
 
 function opportunity(o, weights, done) {
   return el("section", { class: "panel", dataset: { bot: botOf(o.account) } },
-    el("div", { class: "panel-head" }, el("h3", {}, short(o.account_name)), el("span", { class: "muted small" }, STATUS[o.status] || o.status)),
+    el("div", { class: "panel-head" }, el("h3", {}, short(o.account_name)), el("span", { class: "muted small" }, statusLine(o))),
+    o.outcome_note ? el("p", { class: "muted" }, `Test: ${o.outcome_note}`) : null,
     el("div", { class: `trend-big is-${o.class}` },
       el("span", { class: "trend-num" }, scoreText(o.score)),
       el("span", {}, el("span", { class: "trend-class" }, CLASS[o.class] || o.class),
