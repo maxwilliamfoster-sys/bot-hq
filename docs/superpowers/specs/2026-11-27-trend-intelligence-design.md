@@ -145,4 +145,16 @@ Create a free Google Cloud project, turn on YouTube Data API v3 and make an API 
 - Verified: 242/242 tests (205 existing + 37 new: 15 niche samples across every account, manual adds, approval, dedupe, filters, weights). The Wrangler dry-run bundle builds. Migration 0004 applied to the local D1. A batch sent twice to `wrangler dev` stored 2 trends, 2 opportunities and 3 sources (no duplicates), and the test rows were deleted afterwards.
 - Not done: remote migration and deploy (waiting for phases 2-5, so the live app doesn't get routes with no data and no screen).
 
-### Next: phase 2 (source adapters in Python, `trends/`, GitHub Action dry run)
+### Phase 2: collector (done 2026-11-27, dry run only)
+- `trends/` (standard-library Python, 3.12+): `http.py` (disk cache, 3 retries with backoff and Retry-After capped at 30 s, 0.5 s gap per host, 5 MB cap, keys redacted from every message, hashed cache names, daily quota ledger), `sources/` (google_trends, wikipedia, news, youtube, radar; one failing never stops the others), `candidates.py`, `manual_links.py`, `state.py`, `collect.py`, `README.md`.
+- Feeds with a DOCTYPE or ENTITY are refused before parsing (no entity tricks).
+- Grouping favours precision: a story joins a topic only when it shares all of a short name's distinctive words (3/4 of a long one), and headlines group only when they share 3+ distinctive words, at least half the shorter's. Found in the first live run: a cricket "T20 World Cup" story joined "FIFA U-17 World Cup", and a song-contest story borrowed a NASA headline through "have" and "been".
+- bodge's "giant", "tiny" and "faster than" moved from anchors to related words: alone they matched a Milky Way story. The niche itself is unchanged.
+- Lengths are cut in UTF-16 units like the Worker (an emoji counts 2); one live headline was 201 by the Worker's count.
+- True-crime candidates about live cases (accused / trial / charged, no verdict) are flagged `active_case` in the report. Phase 3 must carry the flag to the Worker, and ideas must wait for a verdict and use court-established facts only.
+- Components only from numbers the signals carry; news-only topics have just timeliness, so they score low until other sources confirm them. Audience history-fit, competition and originality come in phase 3.
+- Tests: 42 Python tests (fixtures saved from the real sources), 252 JS tests. The first live dry run gave 661 signals, 60 candidates (cap), and 0 invalid / 0 gate mismatches when checked against the Worker's own `validCandidate` and `nicheGate`. YouTube is skipped until the free key exists.
+- `.github/workflows/trends.yml`: daily 05:30 UTC plus manual; tests, then a dry run; report in the job summary and as an artifact; state in the Actions cache. It sends nothing.
+- Known: the same topic can appear twice when names differ by a year ("2026 FIFA U-17 World Cup" vs "FIFA U-17 World Cup"); the Wikipedia pass takes about 2 minutes uncached (serial, polite).
+
+### Next: phase 3 (intelligence: history fit from autopilot outcomes, competition counts, originality vs past videos, lifecycle rules, active-case flag stored)

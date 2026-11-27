@@ -1,0 +1,46 @@
+name: Trend collector
+
+# Daily: fetch the free trend sources, build niche-gated candidates and write a report.
+# DRY RUN for now: nothing is sent to Bot HQ until posting is switched on (phase 6 of the trends design).
+on:
+  schedule:
+    - cron: '30 5 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: trends
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test the collector
+        run: python -m unittest discover -s trends/tests -t .
+      # Day counts and earlier view readings between runs. Losing them is harmless.
+      - uses: actions/cache@v4
+        with:
+          path: trends/.state
+          key: trends-state-${{ github.run_id }}
+          restore-keys: trends-state-
+      - name: Collect (dry run)
+        env:
+          YT_TREND_API_KEY: ${{ secrets.YT_TREND_API_KEY }}
+        run: python -m trends.collect
+      - name: Report
+        if: always()
+        run: test -f trends/out/report.md && cat trends/out/report.md >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trends-report
+          path: trends/out/
+          retention-days: 14

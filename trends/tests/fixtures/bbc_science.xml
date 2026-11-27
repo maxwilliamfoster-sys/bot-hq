@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?><rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+    <channel>
+        <title><![CDATA[BBC News]]></title>
+        <description><![CDATA[BBC News - Science & Environment]]></description>
+        <link>https://www.bbc.co.uk/news/science_and_environment</link>
+        <image>
+            <url>https://news.bbcimg.co.uk/nol/shared/img/bbc_news_120x60.gif</url>
+            <title>BBC News</title>
+            <link>https://www.bbc.co.uk/news/science_and_environment</link>
+        </image>
+        <generator>RSS for Node</generator>
+        <lastBuildDate>Fri, 27 Nov 2026 09:32:51 GMT</lastBuildDate>
+        <atom:link href="https://feeds.bbci.co.uk/news/science_and_environment/rss.xml" rel="self" type="application/rss+xml"/>
+        <copyright><![CDATA[Copyright: (C) British Broadcasting Corporation, see https://www.bbc.co.uk/usingthebbc/terms-of-use/#15metadataandrssfeeds for terms and conditions of reuse.]]></copyright>
+        <language><![CDATA[en-gb]]></language>
+        <ttl>15</ttl>
+        <item>
+            <title><![CDATA[Floating nature islands installed in parks as Glasgow Games legacy]]></title>
+            <description><![CDATA[The islands, being planted in five Glasgow parks, are designed to encourage wildlife and help clean the water.]]></description>
+            <link>https://www.bbc.co.uk/news/articles/cwe9kxdm1k4lo?at_medium=RSS&amp;at_campaign=rss</link>
+            <guid isPermaLink="false">https://www.bbc.co.uk/news/articles/cwe9kxdm1k4lo#0</guid>
+            <pubDate>Fri, 27 Nov 2026 06:19:13 GMT</pubDate>
+            <media:thumbnail width="240" height="135" url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/e53f/live/7d190c10-e8ee-11f1-8808-1d4222955d7e.jpg"/>
+        </item>
+<item>
+            <title><![CDATA[Major Thanksgiving storm brings flooding, flight delays across US]]></title>
+            <description><![CDATA[Almost one million customers in the US had no power on Thursday evening as storms descended on both US coasts, bringing wind gusts, heavy rain and flooding.]]></description>
+            <link>https://www.bbc.co.uk/news/articles/ckm2mz3prq77o?at_medium=RSS&amp;at_campaign=rss</link>
+            <guid isPermaLink="false">https://www.bbc.co.uk/news/articles/ckm2mz3prq77o#0</guid>
+            <pubDate>Fri, 27 Nov 2026 05:15:26 GMT</pubDate>
+            <media:thumbnail width="240" height="135" url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/5163/live/6a7c75a0-ea2f-11f1-b33b-b39c81e690e4.jpg"/>
+        </item>
+<item>
+            <title><![CDATA[Watch: Truck hangs in the balance after losing control in wet conditions]]></title>
+            <description><![CDATA[A semi-truck carrying mail was left straddling an off-ramp and an overpass in Toledo, Ohio on Thanksgiving Day during severe weather in the US.]]></description>
+            <link>https://www.bbc.co.uk/news/videos/cq9vwdjp7kw3o?at_medium=RSS&amp;at_campaign=rss</link>
+            <guid isPermaLink="false">https://www.bbc.co.uk/news/videos/cq9vwdjp7kw3o#0</guid>
+            <pubDate>Fri, 27 Nov 2026 04:43:49 GMT</pubDate>
+            <media:thumbnail width="240" height="135" url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/4651/live/dc9656a0-ea1c-11f1-8bf9-cf2ccad635de.jpg"/>
+        </item>
+<item>
+            <title><![CDATA[Inside the control room feeding your weather app]]></title>
+            <description><![CDATA[BBC Weather's Matt Taylor takes us on a tour of the Met Office control room.]]></description>
+            <link>https://www.bbc.co.uk/weather/videos/c6y0xq8y757ko?at_medium=RSS&amp;at_campaign=rss</link>
+            <guid isPermaLink="false">https://www.bbc.co.uk/weather/videos/c6y0xq8y757ko#0</guid>
+            <pubDate>Fri, 27 Nov 2026 00:09:30 GMT</pubDate>
+            <media:thumbnail width="240" height="135" url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/1f8f/live/d944b3b0-e9a5-11f1-99b6-a35a62fa4264.png"/>
+        </item>
+<item>
+            <title><![CDATA[Watch: Man and dog narrowly escape powerful king tide in Oregon]]></title>
+            <description><![CDATA[Both the man and his dog escaped unharmed, the police department says.]]></description>
+            <link>https://www.bbc.co.uk/news/videos/cm4gnje836x2o?at_medium=RSS&amp;at_campaign=rss</link>
+            <guid isPermaLink="false">https://www.bbc.co.uk/news/videos/cm4gnje836x2o#0</guid>
+            <pubDate>Thu, 26 Nov 2026 21:51:16 GMT</pubDate>
+            <media:thumbnail width="240" height="135" url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/58d3/live/0b805830-e9e1-11f1-a094-5fdc692f3e33.jpg"/>
+        </item>
+<item>
+            <title><![CDATA[Watch: Roofs torn off and streets under water as severe weather hits US]]></title>
+            <description><![CDATA[Hundreds of thousands have been affected by storms in the country as the Thanksgiving holiday weekend begins.]]></description>
+            <link>https://www.bbc.co.uk/news/videos/cq808d704m22o?at_medium=RSS&amp;at_campaign=rss</link>
+            <guid isPermaLink="false">https://www.bbc.co.uk/news/videos/cq808d704m22o#0</guid>
+            <pubDate>Thu, 26 Nov 2026 19:26:16 GMT</pubDate>
+            <media:thumbnail width="240" height="135" url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/cda3/live/d6364450-ea2b-11f1-a094-5fdc692f3e33.jpg"/>
+        </item>
+<item>
+            <title><![CDATA[Second court defeat for Trump's deep-sea mining ambitions]]></title>
+            <description><![CDATA[Second judge rules against Trump administration's plans to lease areas of ocean floor and survey for mining.]]></description>
+            <link>https://www.bbc.co.uk/news/articles/c6y4jyx2m172o?at_medium=RSS&amp;at_campaign=rss</link>
+            <guid isPermaLink="false">https://www.bbc.co.uk/news/articles/c6y4jyx2m172o#0</guid>
+            <pubDate>Thu, 26 Nov 2026 18:22:28 GMT</pubDate>
+            <media:thumbnail width="240" height="160" url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/c748/live/bfd18aa0-e9b1-11f1-859a-37130cd3a1d7.jpg"/>
+        </item>
+<item>
+            <title><![CDATA[US Army says controlled blast of explosives in Iowa was 'huge success']]></title>
+            <description><![CDATA[Officials say no lead has been detected in the surrounding area, which continues to be tested following concerns from locals.]]></description>
+            <link>https://www.bbc.co.uk/news/articles/cwg7l5ve251ko?at_medium=RSS&amp;at_campaign=rss</link>
+            <guid isPermaLink="false">https://www.bbc.co.uk/news/articles/cwg7l5ve251ko#0</guid>
+            <pubDate>Thu, 26 Nov 2026 10:38:35 GMT</pubDate>
+            <media:thumbnail width="240" height="135" url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/9049/live/be474ac0-e8f9-11f1-b8b0-a95064d74c5f.jpg"/>
+        </item>
+</channel></rss>
