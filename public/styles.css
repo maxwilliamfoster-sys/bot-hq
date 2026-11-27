@@ -241,7 +241,7 @@ a { color: inherit; }
 /* ---------- Tab bar ---------- */
 .tabs {
   position: fixed; inset: auto 0 0 0; z-index: 10;
-  display: grid; grid-template-columns: repeat(6, 1fr);
+  display: grid; grid-template-columns: repeat(7, 1fr);
   height: calc(var(--tab-h) + var(--safe-b)); padding-bottom: var(--safe-b);
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   -webkit-backdrop-filter: saturate(1.6) blur(18px); backdrop-filter: saturate(1.6) blur(18px);
@@ -352,3 +352,32 @@ a.chip { display: inline-flex; align-items: center; }
 .coach-tag { margin-left: var(--s2); }
 .coach-list { margin: 4px 0 0; padding-left: 20px; }
 .coach-list li { margin: 4px 0; }
+
+/* ---------- Trends: score on the right of each row, bigger on the detail panel ---------- */
+.trend-text { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.trend-text .when { white-space: normal; }
+.trend-filters { margin-top: var(--s4); }
+.trend-score { display: grid; justify-items: end; align-content: start; min-width: 56px; }
+.trend-num { font: 800 24px/1 var(--display); font-variant-numeric: tabular-nums; }
+.trend-class { font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; margin-top: 4px; }
+.is-high .trend-num { color: var(--good); }
+.is-monitor .trend-num, .is-low .trend-num, .is-rejected .trend-num { color: var(--muted); }
+.trend-big { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s3); }
+.trend-big .trend-num { font-size: 44px; }
+.trend-big > span:last-child { display: grid; gap: 2px; }
+.trend-big .trend-class { font-size: 16px; color: var(--ink); margin: 0; }
+.trend-decide { margin-top: var(--s4); }
+.panel h4 { font-size: 16px; margin: var(--s4) 0 var(--s2); }
+.parts { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--s3); }
+.part { display: grid; }
+.part-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s3); }
+.part-name { font-weight: 600; }
+.part-pts { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; white-space: nowrap; }
+.part .meter { margin: 4px 0; }
+.trend-warn { background: var(--warn-soft); box-shadow: inset 4px 0 0 var(--warn); }
+.trend-selects { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); margin-top: var(--s2); }
+.trend-select { display: grid; gap: 4px; font-size: 14px; color: var(--muted); }
+.trend-select .input { min-height: 44px; padding-inline: var(--s2); }
+.feed-flat .row { padding-inline: 0; }
+.feed-flat .title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+.sheet-tall { max-height: 92vh; overflow-y: auto; }

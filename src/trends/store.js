@@ -210,7 +210,7 @@ export async function manualAdd(db, b, now) {
   const knownId = await db.prepare("SELECT id FROM trends WHERE dedupe_key = ?").bind(dedupeKey(b.name)).first("id");
   const gate = nicheGate({ name: b.name, text: b.text, prior_excluded: knownId ? await exclusionsFor(db, knownId) : [] }, profile);
   if (!gate.passed) return { status: 422, error: "niche_gate", gate };
-  const c = { name: b.name, text: b.text };
+  const c = { name: b.name, text: b.text, category: profile.category };
   const { id, text } = await upsertTrend(db, c, now);
   await signalStmt(db, id, { source: "manual", source_type: "manual", url: b.url || "", title: b.name, fetched_at: now.toISOString(), metric: "manual" }, 1).run();
   const evidence = await evidenceFor(db, id);

@@ -168,4 +168,14 @@ Create a free Google Cloud project, turn on YouTube Data API v3 and make an API 
 - Tests: 262 JS (10 new in trends_intel.test.js) and 50 Python. Live dry run: 60 candidates, 0 invalid, 0 gate mismatches; 11 flagged as allegations / live cases.
 - Not yet: TikTok and Instagram competitor patterns (watchlist text only, no free feed); the Action doesn't pass APP_URL/token yet (the context route isn't deployed), so competitor feeds start in phase 5.
 
-### Next: phase 4 (interface: the Trends tab, approve/reject, manual form, flags and lifecycle shown; checked at 375 px)
+### Phase 4: interface (done 2026-11-27, not deployed)
+- `src/ui/trends.js`, a 7th tab "Trends" (tab bar now 7 columns; fits at 375 px). Built only from the existing tokens and components (facts, chips, feed rows, panels, meters, sheet), no new look.
+- List: counters (waiting, strong 80+, rising, testing, won, found), account chips with waiting counts, views (Waiting for you = new and 65+, All, Approved, Testing, Won, Rejected, Didn't fit), More filters (stage, platform, minimum score). Each row: account colour, name, account, stage, last seen, "Live case or allegation" in amber, score with its class.
+- Detail `#/trends/<trend id>`: one panel per account with score and class, evidence level, approve/reject with an optional reason, how the score adds up (each part in points of its weight; a part with no data says "No data yet, counts as 0"), past-video effect, why it fits (niche, gate reason, words found, locked rules), ideas when the evening run writes them. Then momentum per day (chart from the second reading) and the evidence links. A failed-gate panel says why and offers no approve.
+- Active-case warning on the detail page: say "accused"/"alleged", stick to what the court heard, never present anyone as guilty; true-crime videos wait for the verdict.
+- Manual form (sheet): account, trend, link, what it's about, notes (notes never count for the gate). A trend outside the niche is refused with the gate's reason and "The niche stays as it is"; nothing offers a way round it.
+- Fixes found in the browser check: the CSP (`style-src 'self'`) blocks `style=""`, so meter widths are set through `element.style`; long meta lines wrap instead of running under the score; long Wikipedia titles clamp to 3 lines. Manual trends now store the account's category.
+- Checked at 375 x 812 in dark and light mode against the local dev Worker with 61 real candidates from the last dry run (scored by the real Worker code): list, filters, detail, chart, approve, reject, refusal of an off-niche trend, adding one that fits. Test rows and the test session removed afterwards. The local D1 had an old copy of migration 0004 (before the exclusions table); its empty trend tables were rebuilt from 0004 + 0005. Production D1 has neither yet.
+- Tests: 262 JS and 50 Python still pass. No UI unit tests (none exist for the other tabs); phase 6 adds tests.
+
+### Next: phase 5 (automation: the Action posts batches and reads /api/trends/context, approved trends handed to the autopilot review, `kit.py trends-pull`, ROUTINE.md change only with Max's OK)
